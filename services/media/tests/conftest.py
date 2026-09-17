@@ -11,7 +11,6 @@ from httpx import ASGITransport, AsyncClient
 
 from chirp_common.db.base import Base
 from chirp_common.db.session import Database
-from chirp_common.events.memory import InMemoryEventBus
 from chirp_common.auth.jwt import JWTCodec
 from chirp_common.testing.factories import TEST_JWT_SECRET
 from app import models  # noqa: F401
@@ -47,7 +46,6 @@ async def context(settings: MediaSettings) -> AsyncIterator[ServiceContext]:
     ctx = ServiceContext(
         settings=settings,
         database=database,
-        bus=InMemoryEventBus(settings.service_name),
         codec=JWTCodec(
             secret=settings.jwt_secret,
             issuer=settings.jwt_issuer,
@@ -69,11 +67,6 @@ async def client(context: ServiceContext) -> AsyncIterator[AsyncClient]:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://media.test") as http:
         yield http
-
-
-@pytest.fixture
-def bus(context: ServiceContext) -> InMemoryEventBus:
-    return context.bus  # type: ignore[return-value]
 
 
 def auth_header(codec: JWTCodec, user_id: str) -> dict[str, str]:

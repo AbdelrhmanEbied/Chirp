@@ -22,7 +22,6 @@ class Follow(TimestampMixin, Base):
 
     __table_args__ = (
         Index("ix_follows_followee_id", "followee_id"),
-        Index("ix_follows_created_at", "created_at"),
     )
 
 
@@ -34,7 +33,6 @@ class Block(TimestampMixin, Base):
 
     __table_args__ = (
         Index("ix_blocks_blocked_id", "blocked_id"),
-        Index("ix_blocks_created_at", "created_at"),
     )
 
 
@@ -46,7 +44,6 @@ class Mute(TimestampMixin, Base):
 
     __table_args__ = (
         Index("ix_mutes_muted_id", "muted_id"),
-        Index("ix_mutes_created_at", "created_at"),
     )
 
 

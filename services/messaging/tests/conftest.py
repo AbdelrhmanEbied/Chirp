@@ -69,7 +69,6 @@ async def context(settings: MessagingSettings) -> AsyncIterator[ServiceContext]:
             access_ttl_seconds=settings.access_token_ttl_seconds,
         ),
         graph_client=FakeGraphClient(),  # type: ignore[arg-type]
-        redis_client=None,
     )
     yield ctx
     await database.dispose()

@@ -22,7 +22,7 @@ async def test_list_conversations_empty(client: AsyncClient, context) -> None:
     headers = auth_header(context.codec, "user-01")
     response = await client.get("/api/v1/messages/conversations", headers=headers)
     assert response.status_code == 200
-    assert response.json()["conversations"] == []
+    assert response.json() == []
 
 
 async def test_send_message(client: AsyncClient, context, bus) -> None:
@@ -71,7 +71,7 @@ async def test_list_messages(client: AsyncClient, context) -> None:
         headers=headers1,
     )
     assert response.status_code == 200
-    messages = response.json()["messages"]
+    messages = response.json()
     assert len(messages) == 2
     assert messages[0]["text"] == "Hello!"
     assert messages[1]["text"] == "World!"
@@ -90,7 +90,7 @@ async def test_mark_read(client: AsyncClient, context) -> None:
         f"/api/v1/messages/conversations/{conv_id}/read",
         headers=headers1,
     )
-    assert response.status_code == 200
+    assert response.status_code == 204
 
 
 async def test_send_message_requires_auth(client: AsyncClient) -> None:

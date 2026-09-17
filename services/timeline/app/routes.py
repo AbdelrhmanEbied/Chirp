@@ -27,6 +27,7 @@ async def home_feed(
 )
 async def user_timeline(
     user_id: str,
+    user: CurrentUser,
     service: Timeline,
     limit: int = Query(default=20, ge=1, le=100),
     cursor: str | None = Query(default=None),

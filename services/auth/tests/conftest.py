@@ -97,7 +97,15 @@ async def context(settings: AuthSettings) -> AsyncIterator[ServiceContext]:
 
 @pytest_asyncio.fixture
 async def client(context: ServiceContext) -> AsyncIterator[AsyncClient]:
-    app = create_app(settings=context.settings, title="auth-test")
+    from chirp_common.http.app import HealthCheck
+    app = create_app(
+        settings=context.settings,
+        title="auth-test",
+        readiness_checks=[
+            HealthCheck("database", context.database.check, critical=True),
+            HealthCheck("user-service", context.user_client.ping, critical=False),
+        ],
+    )
     app.state.context = context
     app.include_router(router)
     transport = ASGITransport(app=app)

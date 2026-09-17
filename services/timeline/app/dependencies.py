@@ -115,7 +115,7 @@ def get_timeline_repository(context: Context) -> TimelineRepository:
     )
 
 
-def get_timeline_service(context: Context, repo: TimelineRepository) -> TimelineService:
+def get_timeline_service(context: Context, repo: Annotated[TimelineRepository, Depends(get_timeline_repository)]) -> TimelineService:
     return TimelineService(
         repository=repo,
         user_client=context.user_client,

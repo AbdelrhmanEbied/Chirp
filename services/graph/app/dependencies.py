@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Annotated
 
 import redis.asyncio as redis
@@ -24,9 +24,9 @@ class ServiceContext:
     settings: GraphSettings
     database: Database
     bus: EventBus
-    cache: Cache
     codec: JWTCodec
     redis_client: redis.Redis | None
+    cache: Cache = field(default_factory=NullCache)
 
     @classmethod
     def create(cls, settings: GraphSettings) -> "ServiceContext":

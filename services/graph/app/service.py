@@ -7,7 +7,7 @@ import logging
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from chirp_common.errors import BadRequestError, ConflictError, NotFoundError
+from chirp_common.errors import ConflictError, NotFoundError
 from chirp_common.events.bus import EventBus
 from chirp_common.events.envelope import EventEnvelope, EventType
 from app.models import Block, Follow
@@ -45,11 +45,11 @@ class GraphService:
 
     async def follow(self, follower_id: str, followee_id: str) -> FollowResponse:
         if follower_id == followee_id:
-            raise BadRequestError("You cannot follow yourself.", code="self_follow")
+            raise ConflictError("You cannot follow yourself.")
 
         existing = await self._follows.get(follower_id, followee_id)
         if existing is not None:
-            return _follow_to_response(existing)
+            raise ConflictError("Already following this user.", code="duplicate_follow")
 
         follow = await self._follows.add(follower_id, followee_id)
         await self._bus.publish(
@@ -106,7 +106,7 @@ class GraphService:
 
     async def block(self, blocker_id: str, blocked_id: str) -> BlockResponse:
         if blocker_id == blocked_id:
-            raise BadRequestError("You cannot block yourself.", code="self_block")
+            raise ConflictError("You cannot block yourself.", code="self_block")
 
         if await self._blocks.is_blocked(blocker_id, blocked_id):
             rows = await self._db.scalars(
@@ -191,7 +191,7 @@ class GraphService:
 
     async def mute(self, user_id: str, muted_id: str) -> MuteResponse:
         if user_id == muted_id:
-            raise BadRequestError("You cannot mute yourself.", code="self_mute")
+            raise ConflictError("You cannot mute yourself.", code="self_mute")
 
         existing = await self._mutes.add(user_id, muted_id)
         return MuteResponse(

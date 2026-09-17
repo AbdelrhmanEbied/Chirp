@@ -24,8 +24,8 @@ class MuteResponse(BaseModel):
 
 
 class CheckBlocksRequest(BaseModel):
-    user_id: str = Field(min_length=26, max_length=26)
-    other_ids: list[str] = Field(max_length=100)
+    blocker_id: str
+    target_ids: list[str] = Field(max_length=100)
 
 
 class CheckBlocksResponse(BaseModel):

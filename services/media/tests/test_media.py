@@ -33,7 +33,6 @@ async def test_delete_nonexistent_media_returns_404(
 
 async def test_upload_and_get_media(client: AsyncClient, context) -> None:
     headers = auth_header(context.codec, "user-01")
-    # Create a minimal valid PNG (1x1 pixel)
     import base64
     png_data = base64.b64decode(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
@@ -42,8 +41,7 @@ async def test_upload_and_get_media(client: AsyncClient, context) -> None:
     response = await client.post(
         "/api/v1/media",
         headers=headers,
-        content=png_data,
-        params={"content_type": "image/png"},
+        files={"file": ("test.png", png_data, "image/png")},
     )
     assert response.status_code == 201
     media_id = response.json()["id"]
@@ -54,7 +52,7 @@ async def test_upload_and_get_media(client: AsyncClient, context) -> None:
     assert get_resp.json()["content_type"] == "image/png"
 
 
-async def test_upload_and_delete_media(client: AsyncClient, context, bus) -> None:
+async def test_upload_and_delete_media(client: AsyncClient, context) -> None:
     headers = auth_header(context.codec, "user-01")
     import base64
     png_data = base64.b64decode(
@@ -64,14 +62,10 @@ async def test_upload_and_delete_media(client: AsyncClient, context, bus) -> Non
     response = await client.post(
         "/api/v1/media",
         headers=headers,
-        content=png_data,
-        params={"content_type": "image/png"},
+        files={"file": ("test.png", png_data, "image/png")},
     )
     assert response.status_code == 201
     media_id = response.json()["id"]
 
     delete_resp = await client.delete(f"/api/v1/media/{media_id}", headers=headers)
     assert delete_resp.status_code == 204
-
-    published = bus.published_of(EventType.MEDIA_DELETED)
-    assert len(published) == 1

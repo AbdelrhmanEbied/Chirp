@@ -64,6 +64,7 @@ def get_moderation_service(context: Context, session: DbSession) -> ModerationSe
         db=session,
         reports=ReportRepository(session),
         actions=ActionRepository(session),
+        bus=context.bus,
         settings=context.settings,
     )
 

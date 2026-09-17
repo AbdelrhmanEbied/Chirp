@@ -8,6 +8,8 @@ from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from chirp_common.errors import NotFoundError
+from chirp_common.events.bus import EventBus
+from chirp_common.events.envelope import EventEnvelope, EventType
 from chirp_common.ids import new_ulid
 from app.models import ModerationAction, Report
 from app.repository import ActionRepository, ReportRepository
@@ -30,11 +32,13 @@ class ModerationService:
         db: AsyncSession,
         reports: ReportRepository,
         actions: ActionRepository,
+        bus: EventBus,
         settings: ModerationSettings,
     ) -> None:
         self._db = db
         self._reports = reports
         self._actions = actions
+        self._bus = bus
         self._settings = settings
 
     async def create_report(
@@ -52,6 +56,20 @@ class ModerationService:
             reason=reason,
         )
         await self._reports.add(report)
+        await self._bus.publish(
+            EventEnvelope.create(
+                type=EventType.REPORT_CREATED,
+                producer=self._settings.service_name,
+                subject_id=report.id,
+                actor_id=reporter_id,
+                payload={
+                    "report_id": report.id,
+                    "target_type": target_type,
+                    "target_id": target_id,
+                    "reason": reason,
+                },
+            )
+        )
         log.info(
             "report created",
             extra={"report_id": report.id, "reporter_id": reporter_id},
@@ -108,6 +126,21 @@ class ModerationService:
             reason=reason,
         )
         await self._actions.add(action)
+        await self._bus.publish(
+            EventEnvelope.create(
+                type=EventType.CONTENT_ACTIONED,
+                producer=self._settings.service_name,
+                subject_id=action.id,
+                actor_id=admin_id,
+                payload={
+                    "action_id": action.id,
+                    "action_type": action_type,
+                    "target_type": target_type,
+                    "target_id": target_id,
+                    "reason": reason,
+                },
+            )
+        )
         log.info(
             "moderation action taken",
             extra={"action_id": action.id, "admin_id": admin_id},

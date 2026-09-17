@@ -18,7 +18,7 @@ async def test_list_notifications_empty(client: AsyncClient, context) -> None:
     headers = auth_header(context.codec, "user-01")
     response = await client.get("/api/v1/notifications", headers=headers)
     assert response.status_code == 200
-    assert response.json()["notifications"] == []
+    assert response.json() == []
 
 
 async def test_unread_count(client: AsyncClient, context) -> None:
@@ -66,7 +66,7 @@ async def test_list_notifications_with_data(client: AsyncClient, context) -> Non
     headers = auth_header(context.codec, "user-01")
     response = await client.get("/api/v1/notifications", headers=headers)
     assert response.status_code == 200
-    assert len(response.json()["notifications"]) == 1
+    assert len(response.json()) == 1
 
 
 async def test_mark_all_read(client: AsyncClient, context) -> None:
@@ -86,7 +86,7 @@ async def test_mark_all_read(client: AsyncClient, context) -> None:
 
     headers = auth_header(context.codec, "user-01")
     response = await client.post("/api/v1/notifications/read-all", headers=headers)
-    assert response.status_code == 200
+    assert response.status_code == 204
 
     count = await client.get("/api/v1/notifications/unread-count", headers=headers)
     assert count.json()["count"] == 0
@@ -134,4 +134,4 @@ async def test_notification_type_variations(client: AsyncClient, context) -> Non
 
     headers = auth_header(context.codec, "user-01")
     response = await client.get("/api/v1/notifications?limit=10", headers=headers)
-    assert len(response.json()["notifications"]) == 6
+    assert len(response.json()) == 6

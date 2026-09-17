@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from httpx import AsyncClient
 
 from chirp_common.events.envelope import EventEnvelope, EventType
@@ -22,7 +24,7 @@ async def test_search_posts_requires_query(client: AsyncClient) -> None:
 async def test_trending_empty(client: AsyncClient) -> None:
     response = await client.get("/api/v1/search/trending")
     assert response.status_code == 200
-    assert response.json()["hashtags"] == []
+    assert response.json() == []
 
 
 async def test_search_users_proxies_to_user_service(
@@ -34,13 +36,17 @@ async def test_search_users_proxies_to_user_service(
 
 async def test_search_posts_after_indexing(client: AsyncClient, context) -> None:
     async with context.database.session() as session:
+        from app.models import PostSearch
+        from chirp_common.ids import new_ulid
         repo = PostSearchRepository(session)
-        await repo.index(
+        post = PostSearch(
+            id=new_ulid(),
             post_id="post-01",
             author_id="user-01",
             text="Hello world",
-            created_at="2026-01-01T00:00:00Z",
+            created_at_index=datetime(2026, 1, 1, tzinfo=timezone.utc),
         )
+        await repo.index(post)
         await session.commit()
 
     response = await client.get("/api/v1/search/posts", params={"q": "Hello"})
@@ -59,7 +65,7 @@ async def test_trending_after_increment(client: AsyncClient, context) -> None:
 
     response = await client.get("/api/v1/search/trending")
     assert response.status_code == 200
-    hashtags = response.json()["hashtags"]
+    hashtags = response.json()
     assert len(hashtags) == 2
     assert hashtags[0]["hashtag"] == "chirp"
     assert hashtags[0]["usage_count"] == 2

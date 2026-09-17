@@ -25,7 +25,7 @@ internal_router = APIRouter(
 
 
 @router.post(
-    "/{user_id}/follow",
+    "/follow/{user_id}",
     response_model=FollowResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Follow a user",
@@ -37,7 +37,7 @@ async def follow_user(
 
 
 @router.delete(
-    "/{user_id}/follow",
+    "/follow/{user_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Unfollow a user",
 )
@@ -77,7 +77,7 @@ async def list_following(
 
 
 @router.post(
-    "/{user_id}/block",
+    "/block/{user_id}",
     response_model=BlockResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Block a user",
@@ -89,7 +89,7 @@ async def block_user(
 
 
 @router.delete(
-    "/{user_id}/block",
+    "/block/{user_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Unblock a user",
 )
@@ -101,7 +101,7 @@ async def unblock_user(
 
 
 @router.post(
-    "/{user_id}/mute",
+    "/mute/{user_id}",
     response_model=MuteResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Mute a user",
@@ -113,7 +113,7 @@ async def mute_user(
 
 
 @router.delete(
-    "/{user_id}/mute",
+    "/mute/{user_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Unmute a user",
 )
@@ -124,7 +124,7 @@ async def unmute_user(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.get("/me/blocks", response_model=list[BlockResponse], summary="List my blocks")
+@router.get("/blocks", response_model=list[BlockResponse], summary="List my blocks")
 async def list_my_blocks(
     user: CurrentUser, service: Graph
 ) -> list[BlockResponse]:
@@ -143,7 +143,7 @@ async def check_blocks(
     # This is called by other services to check if a set of users are blocked
     # by a specific user.
     return await service.check_blocks(
-        payload.user_ids[0] if payload.user_ids else "", payload.user_ids
+        payload.blocker_id, payload.target_ids
     )
 
 
