@@ -45,27 +45,6 @@ def _bearer(request: Request) -> str | None:
     return token.strip()
 
 
-async def _forward(
-    context: Context,
-    request: Request,
-    method: str,
-    path: str,
-    *,
-    user: CurrentUser | None = None,
-    json: dict | None = None,
-    params: dict[str, str | None] | None = None,
-) -> dict | list | None:
-    bearer = _bearer(request)
-    return await context.clients.auth.request(
-        method,
-        path,
-        json=json,
-        params=params,
-        bearer_token=bearer,
-        retry=False,
-    )
-
-
 # ---------------------------------------------------------------------------
 # Composed screens
 # ---------------------------------------------------------------------------

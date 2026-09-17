@@ -151,6 +151,8 @@ class ServiceContext:
                 settings.redis_url,
                 decode_responses=True,
                 socket_timeout=settings.redis_timeout_seconds,
+                socket_connect_timeout=2,
+                max_connections=20,
             )
             rate_limiter = RedisRateLimiter(redis_client)
 

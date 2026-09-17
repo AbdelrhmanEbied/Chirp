@@ -17,6 +17,9 @@ import signal
 import time
 from collections import defaultdict
 from collections.abc import Sequence
+from datetime import datetime, timedelta, timezone
+
+from sqlalchemy import delete, select
 
 from chirp_common import context
 from chirp_common.config import EventBusSettings
@@ -25,7 +28,9 @@ from chirp_common.events.bus import EventBus, EventHandler
 from chirp_common.events.envelope import EventEnvelope, EventType
 from chirp_common.events.memory import InMemoryEventBus
 from chirp_common.events.redis_streams import RedisStreamsEventBus
+from chirp_common.db.session import Database
 from chirp_common.ids import new_ulid
+from chirp_common.idempotency import ProcessedEvent
 from chirp_common.metrics import (
     event_processing_duration_seconds,
     events_consumed_total,
@@ -50,6 +55,7 @@ class EventWorker:
         consumer_group: str,
         service_name: str,
         instance_id: str | None = None,
+        database: Database | None = None,
     ) -> None:
         self._bus = bus
         self._settings = settings
@@ -58,6 +64,7 @@ class EventWorker:
         self._instance = instance_id or f"{consumer_group}-{new_ulid()[-8:]}"
         self._handlers: dict[EventType, list[EventHandler]] = defaultdict(list)
         self._stopping = asyncio.Event()
+        self._database = database
 
     def on(self, event_type: EventType, handler: EventHandler) -> None:
         self._handlers[event_type].append(handler)
@@ -90,6 +97,8 @@ class EventWorker:
         )
 
         backoff = self._settings.event_retry_base_delay_seconds
+        events_since_cleanup = 0
+        last_cleanup = time.monotonic()
         while not self._stopping.is_set():
             try:
                 batch = await self._bus.read(
@@ -108,6 +117,13 @@ class EventWorker:
                 if self._stopping.is_set():
                     break
                 await self._dispatch(stream, entry_id, event, attempt)
+
+            events_since_cleanup += len(batch)
+            now = time.monotonic()
+            if events_since_cleanup >= 1000 or (now - last_cleanup) >= 300:
+                await self._cleanup_processed_events()
+                events_since_cleanup = 0
+                last_cleanup = now
 
             if not batch:
                 await asyncio.sleep(0.05)
@@ -149,6 +165,26 @@ class EventWorker:
                     "attempt": attempt,
                 },
             )
+
+    async def _cleanup_processed_events(self) -> None:
+        """Delete ProcessedEvent records older than 7 days."""
+        if self._database is None:
+            return
+        cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+        try:
+            async with self._database.session() as session:
+                stmt = delete(ProcessedEvent).where(
+                    ProcessedEvent.processed_at < cutoff
+                )
+                result = await session.execute(stmt)
+                await session.commit()
+                if result.rowcount:
+                    log.info(
+                        "cleaned up old processed events",
+                        extra={"deleted": result.rowcount, "consumer": self._group},
+                    )
+        except Exception:  # noqa: BLE001
+            log.warning("failed to clean up processed events", exc_info=True)
 
     async def _handle_failure(
         self,

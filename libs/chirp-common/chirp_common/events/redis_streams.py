@@ -38,7 +38,7 @@ class RedisStreamsEventBus:
         self._settings = settings
         self._service = service_name
         self._client = redis.from_url(
-            settings.event_bus_url, decode_responses=True, socket_timeout=5
+            settings.event_bus_url, decode_responses=True, socket_timeout=5, socket_connect_timeout=2, max_connections=20,
         )
 
     # ------------------------------------------------------------------ publish

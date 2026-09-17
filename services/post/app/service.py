@@ -118,6 +118,7 @@ class PostService:
         )
 
     async def unlike_post(self, user_id: str, post_id: str) -> None:
+        post = await self._posts.get(post_id)
         removed = await self._likes.remove(user_id, post_id)
         if not removed:
             raise NotFoundError("Not liked.")
@@ -128,7 +129,7 @@ class PostService:
                 producer=self._settings.service_name,
                 subject_id=post_id,
                 actor_id=user_id,
-                payload={"author_id": (await self._posts.get(post_id)).author_id if await self._posts.get(post_id) else "", "actor_id": user_id},
+                payload={"author_id": post.author_id if post else "", "actor_id": user_id},
             )
         )
 

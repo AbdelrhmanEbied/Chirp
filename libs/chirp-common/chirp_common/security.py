@@ -15,7 +15,7 @@ import secrets
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 
-_hasher = PasswordHasher(time_cost=2, memory_cost=64 * 1024, parallelism=2, hash_len=32)
+_hasher = PasswordHasher(time_cost=3, memory_cost=256 * 1024, parallelism=4, hash_len=32)
 
 MIN_PASSWORD_LENGTH = 10
 MAX_PASSWORD_LENGTH = 200

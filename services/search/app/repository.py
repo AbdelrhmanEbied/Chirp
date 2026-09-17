@@ -46,13 +46,13 @@ class HashtagRepository:
         self._session = session
 
     async def increment(self, hashtag: str, count: int = 1) -> None:
+        from sqlalchemy import update
         result = await self._session.execute(
-            select(HashtagUsage).where(HashtagUsage.hashtag == hashtag)
+            update(HashtagUsage)
+            .where(HashtagUsage.hashtag == hashtag)
+            .values(usage_count=HashtagUsage.usage_count + count)
         )
-        row = result.scalar_one_or_none()
-        if row:
-            row.usage_count += count
-        else:
+        if result.rowcount == 0:
             self._session.add(HashtagUsage(hashtag=hashtag, usage_count=count))
         await self._session.flush()
 
