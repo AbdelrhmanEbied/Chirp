@@ -1,0 +1,63 @@
+# Prometheus configuration for Chirp microservices.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  - job_name: "auth-service"
+    static_configs:
+      - targets: ["auth:8001"]
+    metrics_path: /metrics
+
+  - job_name: "user-service"
+    static_configs:
+      - targets: ["user:8002"]
+    metrics_path: /metrics
+
+  - job_name: "post-service"
+    static_configs:
+      - targets: ["post:8003"]
+    metrics_path: /metrics
+
+  - job_name: "graph-service"
+    static_configs:
+      - targets: ["graph:8004"]
+    metrics_path: /metrics
+
+  - job_name: "timeline-service"
+    static_configs:
+      - targets: ["timeline:8005"]
+    metrics_path: /metrics
+
+  - job_name: "search-service"
+    static_configs:
+      - targets: ["search:8006"]
+    metrics_path: /metrics
+
+  - job_name: "notification-service"
+    static_configs:
+      - targets: ["notification:8007"]
+    metrics_path: /metrics
+
+  - job_name: "messaging-service"
+    static_configs:
+      - targets: ["messaging:8008"]
+    metrics_path: /metrics
+
+  - job_name: "media-service"
+    static_configs:
+      - targets: ["media:8009"]
+    metrics_path: /metrics
+
+  - job_name: "moderation-service"
+    static_configs:
+      - targets: ["moderation:8010"]
+    metrics_path: /metrics
+
+  - job_name: "gateway"
+    static_configs:
+      - targets: ["gateway:8000"]
+    metrics_path: /metrics

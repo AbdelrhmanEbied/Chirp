@@ -1,0 +1,74 @@
+# Alerting rules for Chirp microservices.
+groups:
+  - name: service_availability
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "{{ $labels.instance }} has been unreachable for more than 1 minute."
+
+  - name: latency
+    rules:
+      - alert: HighRequestLatency
+        expr: histogram_quantile(0.95, rate(chirp_http_request_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High latency on {{ $labels.service }} {{ $labels.method }} {{ $labels.path }}"
+          description: "P95 latency is {{ $value }}s (threshold: 2s)."
+
+      - alert: HighDBLatency
+        expr: histogram_quantile(0.95, rate(chirp_db_query_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High DB latency on {{ $labels.service }} ({{ $labels.operation }})"
+          description: "P95 DB latency is {{ $value }}s (threshold: 1s)."
+
+  - name: error_rate
+    rules:
+      - alert: HighErrorRate
+        expr: rate(chirp_http_requests_total{status=~"5.."}[5m]) / rate(chirp_http_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High 5xx error rate on {{ $labels.service }}"
+          description: "More than 5% of requests are returning 5xx errors."
+
+  - name: event_bus
+    rules:
+      - alert: EventQueueBacklog
+        expr: chirp_event_queue_depth > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Event queue backlog on {{ $labels.service }}"
+          description: "{{ $labels.stream }} has {{ $value }} pending entries."
+
+      - alert: HighDeadLetterRate
+        expr: rate(chirp_events_consumed_total{outcome="dead_lettered"}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High dead-letter rate on {{ $labels.service }}"
+          description: "Events are being dead-lettered at {{ $value }}/s."
+
+  - name: dependency
+    rules:
+      - alert: DependencyCircuitOpen
+        expr: chirp_dependency_requests_total{outcome="circuit_open"} > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Circuit breaker open for {{ $labels.dependency }}"
+          description: "The circuit breaker for {{ $labels.dependency }} from {{ $labels.service }} is open."

@@ -6,7 +6,7 @@
 # the deployment concerns this repository leaves to you.
 #
 # Migrations run as one-shot containers that the API containers wait on
-# (`service_completed_successfully`), which is the Compose equivalent of a
+# (service_completed_successfully), which is the Compose equivalent of a
 # Kubernetes Job in an init phase. Nothing in an application container runs
 # migrations at boot, so scaling an API to N replicas does not race N
 # migrations against each other.
@@ -41,6 +41,7 @@ x-restart: &restart
   restart: unless-stopped
 
 services:
+  # ----------------------------------------------------------------- infrastructure
   postgres:
     image: postgres:16-alpine
     <<: *restart
@@ -54,8 +55,6 @@ services:
     ports:
       - "127.0.0.1:5432:5432"
     healthcheck:
-      # `pg_isready` returns true before the init scripts have finished, so it
-      # also checks that the last database an init script creates exists.
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} && psql -U $${POSTGRES_USER} -lqt | grep -qw chirp_moderation"]
       interval: 5s
       timeout: 5s
@@ -148,8 +147,6 @@ services:
       <<: *common-env
       SERVICE_NAME: user-service
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_user
-    # Separate process from the API: a slow projection must not consume the
-    # web worker pool, and the two scale on different signals.
     command: ["python", "-m", "app.worker"]
     depends_on:
       user-migrate:
@@ -157,6 +154,384 @@ services:
       redis:
         condition: service_healthy
 
+  # ----------------------------------------------------------------- post
+  post-migrate:
+    build:
+      context: .
+      dockerfile: services/post/Dockerfile
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_post
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  post:
+    build:
+      context: .
+      dockerfile: services/post/Dockerfile
+    <<: *restart
+    environment:
+      <<: *common-env
+      SERVICE_NAME: post-service
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_post
+    ports:
+      - "127.0.0.1:8003:8003"
+    depends_on:
+      post-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  post-worker:
+    build:
+      context: .
+      dockerfile: services/post/Dockerfile
+    <<: *restart
+    environment:
+      <<: *common-env
+      SERVICE_NAME: post-service
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_post
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      post-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  # ----------------------------------------------------------------- graph
+  graph-migrate:
+    build:
+      context: .
+      dockerfile: services/graph/Dockerfile
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_graph
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  graph:
+    build:
+      context: .
+      dockerfile: services/graph/Dockerfile
+    <<: *restart
+    environment:
+      <<: *common-env
+      SERVICE_NAME: graph-service
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_graph
+    ports:
+      - "127.0.0.1:8004:8004"
+    depends_on:
+      graph-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  # ----------------------------------------------------------------- timeline
+  timeline-migrate:
+    build:
+      context: .
+      dockerfile: services/timeline/Dockerfile
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_timeline
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  timeline:
+    build:
+      context: .
+      dockerfile: services/timeline/Dockerfile
+    <<: *restart
+    environment:
+      <<: *common-env
+      SERVICE_NAME: timeline-service
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_timeline
+      POST_SERVICE_URL: http://post:8003
+      GRAPH_SERVICE_URL: http://graph:8004
+      USER_SERVICE_URL: http://user:8002
+    ports:
+      - "127.0.0.1:8005:8005"
+    depends_on:
+      timeline-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  # ----------------------------------------------------------------- search
+  search-migrate:
+    build:
+      context: .
+      dockerfile: services/search/Dockerfile
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_search
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  search:
+    build:
+      context: .
+      dockerfile: services/search/Dockerfile
+    <<: *restart
+    environment:
+      <<: *common-env
+      SERVICE_NAME: search-service
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_search
+    ports:
+      - "127.0.0.1:8006:8006"
+    depends_on:
+      search-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  search-worker:
+    build:
+      context: .
+      dockerfile: services/search/Dockerfile
+    <<: *restart
+    environment:
+      <<: *common-env
+      SERVICE_NAME: search-service
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_search
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      search-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  # ----------------------------------------------------------------- notification
+  notification-migrate:
+    build:
+      context: .
+      dockerfile: services/notification/Dockerfile
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_notification
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  notification:
+    build:
+      context: .
+      dockerfile: services/notification/Dockerfile
+    <<: *restart
+    environment:
+      <<: *common-env
+      SERVICE_NAME: notification-service
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_notification
+    ports:
+      - "127.0.0.1:8007:8007"
+    depends_on:
+      notification-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  notification-worker:
+    build:
+      context: .
+      dockerfile: services/notification/Dockerfile
+    <<: *restart
+    environment:
+      <<: *common-env
+      SERVICE_NAME: notification-service
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_notification
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      notification-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  # ----------------------------------------------------------------- messaging
+  messaging-migrate:
+    build:
+      context: .
+      dockerfile: services/messaging/Dockerfile
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_messaging
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  messaging:
+    build:
+      context: .
+      dockerfile: services/messaging/Dockerfile
+    <<: *restart
+    environment:
+      <<: *common-env
+      SERVICE_NAME: messaging-service
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_messaging
+      GRAPH_SERVICE_URL: http://graph:8004
+    ports:
+      - "127.0.0.1:8008:8008"
+    depends_on:
+      messaging-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  # ----------------------------------------------------------------- media
+  media-migrate:
+    build:
+      context: .
+      dockerfile: services/media/Dockerfile
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_media
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  media:
+    build:
+      context: .
+      dockerfile: services/media/Dockerfile
+    <<: *restart
+    environment:
+      <<: *common-env
+      SERVICE_NAME: media-service
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_media
+    ports:
+      - "127.0.0.1:8009:8009"
+    depends_on:
+      media-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    volumes:
+      - media-uploads:/srv/uploads
+
+  # ----------------------------------------------------------------- moderation
+  moderation-migrate:
+    build:
+      context: .
+      dockerfile: services/moderation/Dockerfile
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_moderation
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  moderation:
+    build:
+      context: .
+      dockerfile: services/moderation/Dockerfile
+    <<: *restart
+    environment:
+      <<: *common-env
+      SERVICE_NAME: moderation-service
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_moderation
+    ports:
+      - "127.0.0.1:8010:8010"
+    depends_on:
+      moderation-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  # ----------------------------------------------------------------- gateway
+  gateway:
+    build:
+      context: .
+      dockerfile: services/gateway/Dockerfile
+    <<: *restart
+    environment:
+      <<: *common-env
+      SERVICE_NAME: gateway
+      AUTH_SERVICE_URL: http://auth:8001
+      USER_SERVICE_URL: http://user:8002
+      POST_SERVICE_URL: http://post:8003
+      GRAPH_SERVICE_URL: http://graph:8004
+      TIMELINE_SERVICE_URL: http://timeline:8005
+      SEARCH_SERVICE_URL: http://search:8006
+      NOTIFICATION_SERVICE_URL: http://notification:8007
+      MESSAGING_SERVICE_URL: http://messaging:8008
+      MEDIA_SERVICE_URL: http://media:8009
+      MODERATION_SERVICE_URL: http://moderation:8010
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      auth:
+        condition: service_started
+      user:
+        condition: service_started
+      post:
+        condition: service_started
+      graph:
+        condition: service_started
+      timeline:
+        condition: service_started
+      search:
+        condition: service_started
+      notification:
+        condition: service_started
+      messaging:
+        condition: service_started
+      media:
+        condition: service_started
+      moderation:
+        condition: service_started
+
+  # ----------------------------------------------------------------- monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    <<: *restart
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./docker/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=7d"
+    ports:
+      - "127.0.0.1:9090:9090"
+
+  grafana:
+    image: grafana/grafana:latest
+    <<: *restart
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - prometheus
+
 volumes:
   postgres-data:
   redis-data:
+  media-uploads:
+  prometheus-data:
+  grafana-data:
