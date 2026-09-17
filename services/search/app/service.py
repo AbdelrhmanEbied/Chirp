@@ -46,8 +46,16 @@ class SearchService:
     async def remove_post(self, post_id: str) -> None:
         await self._posts.remove(post_id)
 
-    async def search_posts(self, query: str, limit: int = 20) -> SearchResponse:
-        posts = await self._posts.search(query, limit=limit)
+    async def search_posts(
+        self,
+        query: str,
+        limit: int = 20,
+        cursor: str | None = None,
+        sort: str = "relevance",
+    ) -> SearchResponse:
+        posts, next_cursor = await self._posts.search(
+            query, limit=limit, cursor=cursor, sort=sort
+        )
         results = [
             SearchResult(
                 id=p.id,
@@ -58,7 +66,13 @@ class SearchService:
             )
             for p in posts
         ]
-        return SearchResponse(results=results, total=len(results), limit=limit)
+        return SearchResponse(
+            results=results,
+            total=len(results),
+            limit=limit,
+            next_cursor=next_cursor,
+            has_more=next_cursor is not None,
+        )
 
     async def search_users(self, query: str, limit: int = 20) -> list[dict]:
         url = f"{self._settings.user_service_url}/api/v1/users/search"

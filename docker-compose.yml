@@ -294,6 +294,26 @@ services:
       redis:
         condition: service_healthy
 
+  timeline-worker:
+    build:
+      context: .
+      dockerfile: services/timeline/Dockerfile
+    <<: *worker-service
+    environment:
+      <<: *common-env
+      SERVICE_NAME: timeline-service
+      DB_APPLICATION_NAME: timeline-service-worker
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_timeline
+      POST_SERVICE_URL: http://post:8003
+      GRAPH_SERVICE_URL: http://graph:8004
+      USER_SERVICE_URL: http://user:8002
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      timeline-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
   # ----------------------------------------------------------------- search
   search-migrate:
     build:

@@ -15,8 +15,10 @@ async def search_posts(
     service: Search,
     q: str = Query(..., min_length=1),
     limit: int = Query(default=20, ge=1, le=50),
+    cursor: str | None = Query(default=None),
+    sort: str = Query(default="relevance", pattern="^(relevance|recent|similarity)$"),
 ) -> SearchResponse:
-    return await service.search_posts(q, limit=limit)
+    return await service.search_posts(q, limit=limit, cursor=cursor, sort=sort)
 
 
 @router.get("/users")

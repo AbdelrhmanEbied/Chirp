@@ -22,3 +22,5 @@ class SearchResponse(BaseModel):
     results: list[SearchResult]
     total: int
     limit: int
+    next_cursor: str | None = None
+    has_more: bool = False

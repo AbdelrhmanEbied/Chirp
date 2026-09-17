@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from sqlalchemy import Index, String, Text
+from sqlalchemy.orm import Mapped, mapped_column
+
 from chirp_common.db.base import Base, TimestampMixin
 from chirp_common.idempotency import ProcessedEvent  # noqa: F401
 from chirp_common.ids import ULID_LENGTH
-from sqlalchemy import DateTime, Index, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import DateTime
 
 
 class PostSearch(TimestampMixin, Base):
@@ -16,7 +18,7 @@ class PostSearch(TimestampMixin, Base):
     )
     author_id: Mapped[str] = mapped_column(String(ULID_LENGTH), nullable=False)
     text: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at_index: Mapped[str] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at_index = mapped_column(DateTime(timezone=True), nullable=False)
 
     __table_args__ = (
         Index("ix_post_search_author", "author_id"),
