@@ -34,17 +34,40 @@ x-common-env: &common-env
   DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
   DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-5}
   DB_STATEMENT_TIMEOUT_MS: ${DB_STATEMENT_TIMEOUT_MS:-5000}
+  DB_APPLICATION_NAME: ${DB_APPLICATION_NAME:-chirp}
   CACHE_ENABLED: ${CACHE_ENABLED:-true}
   CACHE_DEFAULT_TTL_SECONDS: ${CACHE_DEFAULT_TTL_SECONDS:-60}
 
 x-restart: &restart
   restart: unless-stopped
 
+x-api-service: &api-service
+  restart: unless-stopped
+  deploy:
+    resources:
+      limits:
+        cpus: "1.0"
+        memory: 512M
+      reservations:
+        cpus: "0.25"
+        memory: 128M
+
+x-worker-service: &worker-service
+  restart: unless-stopped
+  deploy:
+    resources:
+      limits:
+        cpus: "0.5"
+        memory: 256M
+      reservations:
+        cpus: "0.1"
+        memory: 64M
+
 services:
   # ----------------------------------------------------------------- infrastructure
   postgres:
     image: postgres:16-alpine
-    <<: *restart
+    <<: *api-service
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-chirp}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
@@ -63,7 +86,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    <<: *restart
+    <<: *api-service
     command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
     volumes:
       - redis-data:/data
@@ -93,10 +116,11 @@ services:
     build:
       context: .
       dockerfile: services/auth/Dockerfile
-    <<: *restart
+    <<: *api-service
     environment:
       <<: *common-env
       SERVICE_NAME: auth-service
+      DB_APPLICATION_NAME: auth-service
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_auth
       USER_SERVICE_URL: http://user:8002
     ports:
@@ -125,10 +149,11 @@ services:
     build:
       context: .
       dockerfile: services/user/Dockerfile
-    <<: *restart
+    <<: *api-service
     environment:
       <<: *common-env
       SERVICE_NAME: user-service
+      DB_APPLICATION_NAME: user-service
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_user
     ports:
       - "127.0.0.1:8002:8002"
@@ -142,7 +167,7 @@ services:
     build:
       context: .
       dockerfile: services/user/Dockerfile
-    <<: *restart
+    <<: *worker-service
     environment:
       <<: *common-env
       SERVICE_NAME: user-service
@@ -172,10 +197,11 @@ services:
     build:
       context: .
       dockerfile: services/post/Dockerfile
-    <<: *restart
+    <<: *api-service
     environment:
       <<: *common-env
       SERVICE_NAME: post-service
+      DB_APPLICATION_NAME: post-service
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_post
     ports:
       - "127.0.0.1:8003:8003"
@@ -189,7 +215,7 @@ services:
     build:
       context: .
       dockerfile: services/post/Dockerfile
-    <<: *restart
+    <<: *worker-service
     environment:
       <<: *common-env
       SERVICE_NAME: post-service
@@ -219,10 +245,11 @@ services:
     build:
       context: .
       dockerfile: services/graph/Dockerfile
-    <<: *restart
+    <<: *api-service
     environment:
       <<: *common-env
       SERVICE_NAME: graph-service
+      DB_APPLICATION_NAME: graph-service
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_graph
     ports:
       - "127.0.0.1:8004:8004"
@@ -250,10 +277,11 @@ services:
     build:
       context: .
       dockerfile: services/timeline/Dockerfile
-    <<: *restart
+    <<: *api-service
     environment:
       <<: *common-env
       SERVICE_NAME: timeline-service
+      DB_APPLICATION_NAME: timeline-service
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_timeline
       POST_SERVICE_URL: http://post:8003
       GRAPH_SERVICE_URL: http://graph:8004
@@ -284,10 +312,11 @@ services:
     build:
       context: .
       dockerfile: services/search/Dockerfile
-    <<: *restart
+    <<: *api-service
     environment:
       <<: *common-env
       SERVICE_NAME: search-service
+      DB_APPLICATION_NAME: search-service
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_search
     ports:
       - "127.0.0.1:8006:8006"
@@ -301,7 +330,7 @@ services:
     build:
       context: .
       dockerfile: services/search/Dockerfile
-    <<: *restart
+    <<: *worker-service
     environment:
       <<: *common-env
       SERVICE_NAME: search-service
@@ -331,10 +360,11 @@ services:
     build:
       context: .
       dockerfile: services/notification/Dockerfile
-    <<: *restart
+    <<: *api-service
     environment:
       <<: *common-env
       SERVICE_NAME: notification-service
+      DB_APPLICATION_NAME: notification-service
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_notification
     ports:
       - "127.0.0.1:8007:8007"
@@ -348,7 +378,7 @@ services:
     build:
       context: .
       dockerfile: services/notification/Dockerfile
-    <<: *restart
+    <<: *worker-service
     environment:
       <<: *common-env
       SERVICE_NAME: notification-service
@@ -378,10 +408,11 @@ services:
     build:
       context: .
       dockerfile: services/messaging/Dockerfile
-    <<: *restart
+    <<: *api-service
     environment:
       <<: *common-env
       SERVICE_NAME: messaging-service
+      DB_APPLICATION_NAME: messaging-service
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_messaging
       GRAPH_SERVICE_URL: http://graph:8004
     ports:
@@ -410,10 +441,11 @@ services:
     build:
       context: .
       dockerfile: services/media/Dockerfile
-    <<: *restart
+    <<: *api-service
     environment:
       <<: *common-env
       SERVICE_NAME: media-service
+      DB_APPLICATION_NAME: media-service
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_media
     ports:
       - "127.0.0.1:8009:8009"
@@ -443,10 +475,11 @@ services:
     build:
       context: .
       dockerfile: services/moderation/Dockerfile
-    <<: *restart
+    <<: *api-service
     environment:
       <<: *common-env
       SERVICE_NAME: moderation-service
+      DB_APPLICATION_NAME: moderation-service
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_moderation
     ports:
       - "127.0.0.1:8010:8010"
@@ -461,7 +494,7 @@ services:
     build:
       context: .
       dockerfile: services/gateway/Dockerfile
-    <<: *restart
+    <<: *api-service
     environment:
       <<: *common-env
       SERVICE_NAME: gateway
@@ -502,7 +535,7 @@ services:
   # ----------------------------------------------------------------- monitoring
   prometheus:
     image: prom/prometheus:latest
-    <<: *restart
+    <<: *api-service
     volumes:
       - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./docker/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
@@ -515,7 +548,7 @@ services:
 
   grafana:
     image: grafana/grafana:latest
-    <<: *restart
+    <<: *api-service
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
