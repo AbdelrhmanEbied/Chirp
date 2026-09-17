@@ -4,6 +4,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import HomePage from './pages/HomePage';
 import ProfilePage from './pages/ProfilePage';
+import EditProfilePage from './pages/EditProfilePage';
 import PostDetailPage from './pages/PostDetailPage';
 import SearchPage from './pages/SearchPage';
 import NotificationsPage from './pages/NotificationsPage';
@@ -28,6 +29,7 @@ export default function App() {
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="messages" element={<MessagesPage />} />
         <Route path="profile/:username" element={<ProfilePage />} />
+        <Route path="settings/profile" element={<EditProfilePage />} />
         <Route path="post/:postId" element={<PostDetailPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -16,7 +16,7 @@ export default function RegisterPage() {
     setError('');
     setLoading(true);
     try {
-      await api.register(email, username, displayName, password);
+      await api.register({ email, username, display_name: displayName, password });
       navigate('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');

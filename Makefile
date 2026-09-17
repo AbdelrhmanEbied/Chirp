@@ -1,6 +1,6 @@
 # Chirp -- developer entry points.
 .DEFAULT_GOAL := help
-SERVICES := auth user
+SERVICES := auth user post graph timeline search notification messaging media moderation
 COMPOSE := docker compose
 
 .PHONY: help
@@ -16,8 +16,19 @@ env: ## Create .env from the example if it does not exist
 .PHONY: up
 up: env ## Build and start the whole stack
 	$(COMPOSE) up --build -d
-	@echo "auth  -> http://localhost:8001/docs"
-	@echo "user  -> http://localhost:8002/docs"
+	@echo "gateway      -> http://localhost:8000/docs"
+	@echo "auth         -> http://localhost:8001/docs"
+	@echo "user         -> http://localhost:8002/docs"
+	@echo "post         -> http://localhost:8003/docs"
+	@echo "graph        -> http://localhost:8004/docs"
+	@echo "timeline     -> http://localhost:8005/docs"
+	@echo "search       -> http://localhost:8006/docs"
+	@echo "notification -> http://localhost:8007/docs"
+	@echo "messaging    -> http://localhost:8008/docs"
+	@echo "media        -> http://localhost:8009/docs"
+	@echo "moderation   -> http://localhost:8010/docs"
+	@echo "grafana      -> http://localhost:3000"
+	@echo "prometheus   -> http://localhost:9090"
 
 .PHONY: down
 down: ## Stop the stack, keep volumes
@@ -75,8 +86,8 @@ seed: ## Generate development data (SIZE=small|medium|large)
 
 .PHONY: health
 health: ## Curl every readiness endpoint
-	@for p in 8001 8002; do echo "-- :$$p"; curl -fsS http://localhost:$$p/health/ready | python3 -m json.tool || true; done
+	@for p in 8000 8001 8002 8003 8004 8005 8006 8007 8008 8009 8010; do echo "-- :$$p"; curl -fsS http://localhost:$$p/health/ready | python3 -m json.tool || true; done
 
 .PHONY: metrics
 metrics: ## Show request metrics from every service
-	@for p in 8001 8002; do echo "-- :$$p"; curl -fsS http://localhost:$$p/metrics | grep -E '^chirp_http_requests_total' | head -5 || true; done
+	@for p in 8000 8001 8002 8003 8004 8005 8006 8007 8008 8009 8010; do echo "-- :$$p"; curl -fsS http://localhost:$$p/metrics | grep -E '^chirp_http_requests_total' | head -3 || true; done

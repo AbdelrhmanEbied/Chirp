@@ -1,7 +1,7 @@
 import { Outlet, NavLink } from 'react-router-dom';
-import { AuthProvider, useAuth } from '../hooks/useAuth';
+import { useAuth } from '../hooks/useAuth';
 
-function LayoutInner() {
+export default function Layout() {
   const { user, logout } = useAuth();
 
   return (
@@ -21,13 +21,5 @@ function LayoutInner() {
         <Outlet />
       </main>
     </div>
-  );
-}
-
-export default function Layout() {
-  return (
-    <AuthProvider>
-      <LayoutInner />
-    </AuthProvider>
   );
 }

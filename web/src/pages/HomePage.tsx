@@ -16,7 +16,7 @@ interface Post {
 }
 
 export default function HomePage() {
-  const { user } = useAuth();
+  useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);

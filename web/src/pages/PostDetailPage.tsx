@@ -6,7 +6,7 @@ import PostCard from '../components/PostCard';
 export default function PostDetailPage() {
   const { postId } = useParams<{ postId: string }>();
   const [post, setPost] = useState<{ id: string; author_id: string; text: string; likes_count: number; reposts_count: number; replies_count: number; created_at: string; liked_by_me: boolean; reposted_by_me: boolean } | null>(null);
-  const [replies, setReplies] = useState<Array<{ id: string; author_id: string; text: string; likes_count: number; reposts_count: number; replies_count: number; created_at: string }>>([]);
+  const [replies, setReplies] = useState<Array<{ id: string; author_id: string; text: string; likes_count: number; reposts_count?: number; replies_count?: number; created_at: string }>>([]);
   const [replyText, setReplyText] = useState('');
   const [loading, setLoading] = useState(true);
 
