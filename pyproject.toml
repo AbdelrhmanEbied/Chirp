@@ -1,0 +1,41 @@
+# Root tooling configuration. Each service and the shared library have their
+# own pyproject for packaging; this one only configures lint and type checking
+# so the rules are identical everywhere.
+
+[tool.ruff]
+line-length = 96
+target-version = "py312"
+extend-exclude = ["migrations/versions", "web"]
+
+[tool.ruff.lint]
+select = [
+  "E", "F", "W",      # pycodestyle / pyflakes
+  "I",                 # import sorting
+  "B",                 # bugbear
+  "UP",                # pyupgrade
+  "ASYNC",             # async correctness
+  "S",                 # bandit security checks
+  "C4", "SIM", "RET",  # comprehensions, simplification, returns
+  "TID",               # tidy imports
+]
+ignore = [
+  "S101",  # assert: used deliberately in tests
+  "B008",  # function call in default argument: FastAPI's Depends idiom
+  "RET504",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S105", "S106"]  # hard-coded test credentials are intentional
+
+[tool.mypy]
+python_version = "3.12"
+strict = false
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_return_any = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+exclude = "(migrations|web|tests)"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

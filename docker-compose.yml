@@ -1,0 +1,162 @@
+# Local development topology.
+#
+# Deliberately NOT a production topology. One PostgreSQL server holds one
+# database per service, one Redis serves cache and the event bus on separate
+# logical databases, and there is no ingress, TLS or autoscaling. Those are
+# the deployment concerns this repository leaves to you.
+#
+# Migrations run as one-shot containers that the API containers wait on
+# (`service_completed_successfully`), which is the Compose equivalent of a
+# Kubernetes Job in an init phase. Nothing in an application container runs
+# migrations at boot, so scaling an API to N replicas does not race N
+# migrations against each other.
+
+x-common-env: &common-env
+  ENVIRONMENT: ${ENVIRONMENT:-local}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  LOG_JSON: ${LOG_JSON:-true}
+  JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+  JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+  JWT_ISSUER: ${JWT_ISSUER:-chirp.auth}
+  JWT_AUDIENCE: ${JWT_AUDIENCE:-chirp.api}
+  ACCESS_TOKEN_TTL_SECONDS: ${ACCESS_TOKEN_TTL_SECONDS:-900}
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+  REQUEST_MAX_BYTES: ${REQUEST_MAX_BYTES:-2097152}
+  REDIS_URL: redis://${REDIS_HOST:-redis}:${REDIS_PORT:-6379}/0
+  EVENT_BUS_BACKEND: ${EVENT_BUS_BACKEND:-redis}
+  EVENT_BUS_URL: redis://${REDIS_HOST:-redis}:${REDIS_PORT:-6379}/1
+  EVENT_STREAM_PREFIX: ${EVENT_STREAM_PREFIX:-chirp.events}
+  EVENT_MAX_DELIVERY_ATTEMPTS: ${EVENT_MAX_DELIVERY_ATTEMPTS:-5}
+  EVENT_CLAIM_IDLE_MS: ${EVENT_CLAIM_IDLE_MS:-60000}
+  EVENT_BATCH_SIZE: ${EVENT_BATCH_SIZE:-32}
+  EVENT_MAX_STREAM_LENGTH: ${EVENT_MAX_STREAM_LENGTH:-100000}
+  REFRESH_TOKEN_TTL_SECONDS: ${REFRESH_TOKEN_TTL_SECONDS:-2592000}
+  DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
+  DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-5}
+  DB_STATEMENT_TIMEOUT_MS: ${DB_STATEMENT_TIMEOUT_MS:-5000}
+  CACHE_ENABLED: ${CACHE_ENABLED:-true}
+  CACHE_DEFAULT_TTL_SECONDS: ${CACHE_DEFAULT_TTL_SECONDS:-60}
+
+x-restart: &restart
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    <<: *restart
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-chirp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      # `pg_isready` returns true before the init scripts have finished, so it
+      # also checks that the last database an init script creates exists.
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} && psql -U $${POSTGRES_USER} -lqt | grep -qw chirp_moderation"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    <<: *restart
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis-data:/data
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ----------------------------------------------------------------- auth
+  auth-migrate:
+    build:
+      context: .
+      dockerfile: services/auth/Dockerfile
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_auth
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  auth:
+    build:
+      context: .
+      dockerfile: services/auth/Dockerfile
+    <<: *restart
+    environment:
+      <<: *common-env
+      SERVICE_NAME: auth-service
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_auth
+      USER_SERVICE_URL: http://user:8002
+    ports:
+      - "127.0.0.1:8001:8001"
+    depends_on:
+      auth-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  # ----------------------------------------------------------------- user
+  user-migrate:
+    build:
+      context: .
+      dockerfile: services/user/Dockerfile
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_user
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  user:
+    build:
+      context: .
+      dockerfile: services/user/Dockerfile
+    <<: *restart
+    environment:
+      <<: *common-env
+      SERVICE_NAME: user-service
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_user
+    ports:
+      - "127.0.0.1:8002:8002"
+    depends_on:
+      user-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  user-worker:
+    build:
+      context: .
+      dockerfile: services/user/Dockerfile
+    <<: *restart
+    environment:
+      <<: *common-env
+      SERVICE_NAME: user-service
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_user
+    # Separate process from the API: a slow projection must not consume the
+    # web worker pool, and the two scale on different signals.
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      user-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  redis-data:
