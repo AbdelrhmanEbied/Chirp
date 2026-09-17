@@ -17,7 +17,7 @@ COPY services/media/alembic.ini /srv/service/alembic.ini
 
 WORKDIR /srv/service
 RUN pip install --no-cache-dir --no-deps . \
- && pip install --no-cache-dir "uvicorn[standard]>=0.30" "python-multipart>=0.0.9"
+ && pip install --no-cache-dir "uvicorn[standard]>=0.30" "python-multipart>=0.0.9" "boto3>=1.34"
 
 FROM python:3.12-slim AS runtime
 

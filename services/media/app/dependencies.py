@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.repository import MediaRepository
 from app.service import MediaService
 from app.settings import MediaSettings
-from app.storage import LocalMediaStorage, MediaStorage
+from app.storage import LocalMediaStorage, MediaStorage, S3MediaStorage
 
 
 @dataclass(slots=True)
@@ -25,10 +25,15 @@ class ServiceContext:
 
     @classmethod
     def create(cls, settings: MediaSettings) -> ServiceContext:
+        storage: MediaStorage
+        if settings.media_storage_backend == "s3" and settings.s3_bucket:
+            storage = S3MediaStorage(settings)
+        else:
+            storage = LocalMediaStorage(settings)
         return cls(
             settings=settings,
             database=Database(settings),
-            storage=LocalMediaStorage(settings),
+            storage=storage,
             codec=JWTCodec(
                 secret=settings.jwt_secret,
                 algorithm=settings.jwt_algorithm,

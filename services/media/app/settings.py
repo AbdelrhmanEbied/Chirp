@@ -29,6 +29,12 @@ class MediaSettings(ServiceSettings, DatabaseSettings, RedisSettings):
 
     media_base_url: str = "http://localhost:8009"
 
+    # S3 configuration (used when media_storage_backend="s3")
+    s3_bucket: str = ""
+    s3_region: str = "us-east-1"
+    s3_endpoint_url: str | None = None  # For S3-compatible services (MinIO, etc.)
+    s3_prefix: str = "media/"
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> MediaSettings:

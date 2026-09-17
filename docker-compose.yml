@@ -447,6 +447,15 @@ services:
       SERVICE_NAME: media-service
       DB_APPLICATION_NAME: media-service
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-chirp}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/chirp_media
+      MEDIA_STORAGE_BACKEND: ${MEDIA_STORAGE_BACKEND:-local}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-}
+      S3_PREFIX: ${S3_PREFIX:-media/}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
+      MEDIA_BASE_URL: ${MEDIA_BASE_URL:-http://localhost:8009}
     ports:
       - "127.0.0.1:8009:8009"
     depends_on:
