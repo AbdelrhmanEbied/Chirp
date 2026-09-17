@@ -60,6 +60,8 @@ async def test_username_conflict_rolls_back_the_account(
         ("password", "short"),
         ("password", "aaaaaaaaaaaaaaa"),
         ("display_name", ""),
+        ("username", ""),
+        ("email", ""),
     ],
 )
 async def test_invalid_registration_is_rejected(
@@ -69,3 +71,11 @@ async def test_invalid_registration_is_rejected(
     response = await client.post("/api/v1/auth/register", json=payload)
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "validation_error"
+
+
+async def test_register_sets_activated_at(client: AsyncClient) -> None:
+    response = await client.post("/api/v1/auth/register", json=REGISTRATION)
+    assert response.status_code == 201
+    user_id = response.json()["user_id"]
+    assert user_id is not None
+    assert len(user_id) == 26  # ULID

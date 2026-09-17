@@ -94,3 +94,18 @@ async def test_change_password_revokes_other_sessions(
         "/api/v1/auth/refresh", json={"refresh_token": second.json()["refresh_token"]}
     )
     assert refreshed.status_code == 401
+
+
+async def test_sessions_list_shows_current_session(
+    client: AsyncClient, registered
+) -> None:
+    response = await client.get("/api/v1/auth/sessions", headers=auth_header(registered))
+    assert response.status_code == 200
+    sessions = response.json()
+    assert len(sessions) >= 1
+    assert any(s["current"] for s in sessions)
+
+
+async def test_logout_all_requires_auth(client: AsyncClient) -> None:
+    response = await client.post("/api/v1/auth/logout-all")
+    assert response.status_code == 401
