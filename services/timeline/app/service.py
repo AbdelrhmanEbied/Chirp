@@ -30,8 +30,7 @@ class TimelineService:
     ) -> FeedResponse:
         """Build the authenticated user's home feed.
 
-        Fan-out on read: fetch followees from graph, their posts from post
-        service, hydrate authors from user service.
+        Fan-out on write: reads from pre-computed feed_entries table.
         """
         return await self._repo.get_home_feed(user_id, limit, cursor)
 

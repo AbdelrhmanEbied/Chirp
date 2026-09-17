@@ -106,10 +106,10 @@ async def get_session(context: Context) -> AsyncIterator[AsyncSession]:
 DbSession = Annotated[AsyncSession, Depends(get_session)]
 
 
-def get_timeline_repository(context: Context) -> TimelineRepository:
+def get_timeline_repository(context: Context, session: DbSession) -> TimelineRepository:
     return TimelineRepository(
+        session=session,
         post_client=context.post_client,
-        graph_client=context.graph_client,
         user_client=context.user_client,
         max_feed_size=context.settings.max_feed_size,
     )
