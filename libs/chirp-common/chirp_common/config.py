@@ -80,6 +80,7 @@ class DatabaseSettings(BaseSettings):
     db_pool_recycle_seconds: int = 1800
     db_echo: bool = False
     db_statement_timeout_ms: int = 5000
+    db_application_name: str = "chirp"
 
 
 class RedisSettings(BaseSettings):

@@ -13,7 +13,7 @@ class MediaSettings(ServiceSettings, DatabaseSettings, RedisSettings):
     port: int = 8009
 
     media_storage_backend: str = "local"
-    media_local_path: str = "/tmp/chirp-media"
+    media_local_path: str = "/srv/uploads"
     media_max_size_bytes: int = 10 * 1024 * 1024  # 10 MB
     media_allowed_types: list[str] = [
         "image/jpeg",

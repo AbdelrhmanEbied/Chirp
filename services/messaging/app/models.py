@@ -19,7 +19,7 @@ class ConversationParticipant(TimestampMixin, Base):
     __tablename__ = "conversation_participants"
 
     conversation_id: Mapped[str] = mapped_column(String(ULID_LENGTH), primary_key=True)
-    user_id: Mapped[str] = mapped_column(String(ULID_LENGTH), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(ULID_LENGTH), primary_key=True, index=True)
     last_read_at: Mapped[str | None] = mapped_column(DateTime(timezone=True), nullable=True)
     joined_at: Mapped[str] = mapped_column(DateTime(timezone=True), nullable=False)
 

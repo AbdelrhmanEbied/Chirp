@@ -119,7 +119,9 @@ class MessageRepository:
             .limit(limit)
         )
         if before:
-            stmt = stmt.where(Message.created_at < func.timezone("UTC", func.now()))
+            from datetime import datetime as _dt
+            cursor = _dt.fromisoformat(before) if isinstance(before, str) else before
+            stmt = stmt.where(Message.created_at < cursor)
         return list(await self._session.scalars(stmt))
 
     async def get_last_message(self, conversation_id: str) -> Message | None:

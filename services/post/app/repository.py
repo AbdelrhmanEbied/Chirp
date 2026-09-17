@@ -31,7 +31,9 @@ class PostRepository:
             .limit(limit)
         )
         if before:
-            stmt = stmt.where(Post.created_at < func.timezone("UTC", func.now()))
+            from datetime import datetime as _dt
+            cursor = _dt.fromisoformat(before) if isinstance(before, str) else before
+            stmt = stmt.where(Post.created_at < cursor)
         return list(await self._session.scalars(stmt))
 
     async def list_replies(self, post_id: str, limit: int = 20) -> list[Post]:
@@ -59,7 +61,6 @@ class LikeRepository:
             await self._session.flush()
             return True
         except Exception:
-            await self._session.rollback()
             return False
 
     async def remove(self, user_id: str, post_id: str) -> bool:
@@ -83,7 +84,6 @@ class RepostRepository:
             await self._session.flush()
             return True
         except Exception:
-            await self._session.rollback()
             return False
 
     async def remove(self, user_id: str, post_id: str) -> bool:
@@ -107,7 +107,6 @@ class BookmarkRepository:
             await self._session.flush()
             return True
         except Exception:
-            await self._session.rollback()
             return False
 
     async def remove(self, user_id: str, post_id: str) -> bool:

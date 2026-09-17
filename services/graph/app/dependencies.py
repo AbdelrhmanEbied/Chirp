@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from chirp_common.auth.deps import AuthenticatedUser, build_auth_dependencies
 from chirp_common.auth.jwt import JWTCodec
-from chirp_common.cache import Cache, NullCache
+from chirp_common.cache import Cache, NullCache, RedisCache
 from chirp_common.db.session import Database
 from chirp_common.events.bus import EventBus
 from chirp_common.events.worker import build_event_bus
@@ -37,8 +37,10 @@ class ServiceContext:
                 settings.redis_url,
                 decode_responses=True,
                 socket_timeout=settings.redis_timeout_seconds,
+                socket_connect_timeout=2,
+                max_connections=20,
             )
-            cache = NullCache()
+            cache = RedisCache(redis_client, default_ttl_seconds=settings.cache_default_ttl_seconds)
         return cls(
             settings=settings,
             database=Database(settings),

@@ -149,19 +149,20 @@ class NotificationProjector:
                 event_type=event.type.value,
             ):
                 return
-            recipient_id = str(event.payload.get("recipient_id", ""))
+            sender_id = str(event.payload.get("sender_id", event.actor_id or ""))
+            conversation_id = str(event.payload.get("conversation_id", ""))
             actor_id = str(event.actor_id or "")
-            if recipient_id and actor_id:
+            if sender_id and actor_id and conversation_id:
                 svc = NotificationService(
                     db=session,
                     notifications=NotificationRepository(session),
                     settings=self._context.settings,
                 )
                 await svc.create_notification(
-                    recipient_id=recipient_id,
+                    recipient_id=sender_id,
                     actor_id=actor_id,
                     notification_type="message_sent",
-                    subject_id=event.subject_id,
+                    subject_id=conversation_id,
                 )
             await session.commit()
 

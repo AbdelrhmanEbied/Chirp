@@ -38,7 +38,7 @@ class Database:
             # would otherwise hold a pooled connection open indefinitely.
             connect_args["server_settings"] = {
                 "statement_timeout": str(settings.db_statement_timeout_ms),
-                "application_name": "chirp",
+                "application_name": settings.db_application_name,
             }
         engine_kwargs: dict[str, object] = {
             "echo": settings.db_echo,

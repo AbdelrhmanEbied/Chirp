@@ -49,7 +49,6 @@ class SearchProjector:
                 text=event.payload.get("text", ""),
                 created_at=event.occurred_at.isoformat(),
             )
-            await session.commit()
 
             for hashtag in event.payload.get("hashtags", []):
                 await service.increment_hashtag(hashtag)

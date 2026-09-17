@@ -18,7 +18,7 @@ class MessagingSettings(ServiceSettings, DatabaseSettings, RedisSettings, EventB
     service_name: str = "messaging-service"
     port: int = 8008
 
-    graph_service_url: str = "http://graph:8009"
+    graph_service_url: str = "http://graph:8004"
     max_message_length: int = 5000
     max_messages_per_page: int = 100
     max_conversations_per_page: int = 50

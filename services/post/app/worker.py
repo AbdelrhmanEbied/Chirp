@@ -33,7 +33,17 @@ class PostProjector:
                 event_type=event.type.value,
             ):
                 return
-            log.info("user deleted, soft-deleting posts", extra={"user_id": event.subject_id})
+            from datetime import UTC, datetime
+            from sqlalchemy import update
+            from app.models import Post
+            user_id = event.subject_id
+            await session.execute(
+                update(Post)
+                .where(Post.author_id == user_id, Post.deleted_at.is_(None))
+                .values(deleted_at=datetime.now(UTC))
+            )
+            await session.commit()
+            log.info("soft-deleted posts for user", extra={"user_id": user_id})
 
     async def on_user_followed(self, event: EventEnvelope) -> None:
         async with self._context.database.session() as session:

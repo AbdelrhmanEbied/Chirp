@@ -25,7 +25,9 @@ class NotificationRepository:
             .limit(limit)
         )
         if before:
-            stmt = stmt.where(Notification.created_at < func.timezone("UTC", func.now()))
+            from datetime import datetime as _dt
+            cursor = _dt.fromisoformat(before) if isinstance(before, str) else before
+            stmt = stmt.where(Notification.created_at < cursor)
         return list(await self._session.scalars(stmt))
 
     async def mark_read(self, user_id: str, notification_id: str) -> bool:

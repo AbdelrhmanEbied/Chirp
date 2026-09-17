@@ -40,6 +40,8 @@ class ServiceContext:
                 settings.redis_url,
                 decode_responses=True,
                 socket_timeout=settings.redis_timeout_seconds,
+                socket_connect_timeout=2,
+                max_connections=20,
             )
         return cls(
             settings=settings,
@@ -57,16 +59,25 @@ class ServiceContext:
                 base_url=settings.post_service_url,
                 dependency="post-service",
                 service_name=settings.service_name,
+                timeout_seconds=settings.http_timeout_seconds,
+                connect_timeout_seconds=settings.http_connect_timeout_seconds,
+                max_retries=settings.http_max_retries,
             ),
             graph_client=ServiceClient(
                 base_url=settings.graph_service_url,
                 dependency="graph-service",
                 service_name=settings.service_name,
+                timeout_seconds=settings.http_timeout_seconds,
+                connect_timeout_seconds=settings.http_connect_timeout_seconds,
+                max_retries=settings.http_max_retries,
             ),
             user_client=ServiceClient(
                 base_url=settings.user_service_url,
                 dependency="user-service",
                 service_name=settings.service_name,
+                timeout_seconds=settings.http_timeout_seconds,
+                connect_timeout_seconds=settings.http_connect_timeout_seconds,
+                max_retries=settings.http_max_retries,
             ),
         )
 
