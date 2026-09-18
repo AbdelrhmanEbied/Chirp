@@ -73,22 +73,49 @@ resource "aws_iam_role_policy" "github_actions_eks" {
   })
 }
 
-module "media_irsa" {
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "~> 5.0"
+resource "aws_iam_role" "media" {
+  name = "${local.project}-${local.environment}-media"
 
-  role_name = "${local.project}-${local.environment}-media"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Federated = module.eks.oidc_provider_arn
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "${module.eks.oidc_provider}:sub" = "system:serviceaccount:chirp-prod:media"
+            "${module.eks.oidc_provider}:aud" = "sts.amazonaws.com"
+          }
+        }
+      }
+    ]
+  })
+}
 
-  attach_s3_policy = true
-  s3_resources = [
-    "${aws_s3_bucket.media.arn}",
-    "${aws_s3_bucket.media.arn}/*",
-  ]
+resource "aws_iam_role_policy" "media_s3" {
+  name = "${local.project}-media-s3"
+  role = aws_iam_role.media.id
 
-  oidc_providers = {
-    main = {
-      provider_arn               = module.eks.oidc_provider_arn
-      namespace_service_accounts = ["chirp-prod:media"]
-    }
-  }
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:GetObject",
+          "s3:DeleteObject",
+          "s3:ListBucket",
+        ]
+        Resources = [
+          aws_s3_bucket.media.arn,
+          "${aws_s3_bucket.media.arn}/*",
+        ]
+      }
+    ]
+  })
 }
