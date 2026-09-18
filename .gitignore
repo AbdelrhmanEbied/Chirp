@@ -15,3 +15,6 @@ node_modules/
 web/dist/
 media-storage/
 .DS_Store
+.terraform/
+.terraform.lock.hcl
+.env.secrets
