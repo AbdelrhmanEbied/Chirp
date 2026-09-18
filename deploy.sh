@@ -43,13 +43,13 @@ if ! command -v k6 &>/dev/null; then
   sudo apt-get update -qq && sudo apt-get install -y -qq --allow-unauthenticated k6
 fi
 
-log "Step 1: Creating Terraform state bucket"
-aws s3 mb s3://chirp-terraform-state --region "$REGION" 2>/dev/null || true
-aws dynamodb create-table \
-  --table-name terraform-locks \
-  --attribute-definitions AttributeName=LockID,AttributeType=S \
-  --key-schema AttributeName=LockID,KeyType=HASH \
-  --billing-mode PAY_PER_REQUEST 2>/dev/null || true
+log "Step 1: Checking Terraform state bucket"
+if ! aws s3api head-bucket --bucket chirp-terraform-state 2>/dev/null; then
+  log "Creating Terraform state bucket"
+  aws s3 mb s3://chirp-terraform-state --region "$REGION"
+else
+  log "Bucket already exists"
+fi
 
 log "Step 2: Generating secrets"
 export TF_VAR_jwt_secret=$(openssl rand -hex 32)
