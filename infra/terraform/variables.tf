@@ -41,7 +41,7 @@ variable "redis_num_nodes" {
 
 variable "eks_node_instance_types" {
   type    = list(string)
-  default = ["t3.micro"]
+  default = ["t3.small"]
 }
 
 variable "eks_desired_size" {
