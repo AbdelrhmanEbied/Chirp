@@ -111,7 +111,7 @@ resource "aws_iam_role_policy" "media_s3" {
           "s3:DeleteObject",
           "s3:ListBucket",
         ]
-        Resources = [
+        Resource = [
           aws_s3_bucket.media.arn,
           "${aws_s3_bucket.media.arn}/*",
         ]

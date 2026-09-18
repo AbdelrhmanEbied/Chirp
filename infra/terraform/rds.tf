@@ -42,9 +42,9 @@ resource "aws_db_instance" "chirp" {
 
   engine               = "postgres"
   engine_version       = "16.4"
-  instance_class       = var.db_instance_class
-  allocated_storage    = 100
-  max_allocated_storage = 500
+  instance_class       = "db.t3.micro"
+  allocated_storage    = 20
+  max_allocated_storage = 100
 
   db_name  = "postgres"
   username = "chirp_admin"
@@ -56,7 +56,7 @@ resource "aws_db_instance" "chirp" {
 
   publicly_accessible = false
 
-  backup_retention_period = 7
+  backup_retention_period = 1
   backup_window          = "03:00-04:00"
   maintenance_window     = "Mon:04:00-Mon:05:00"
 
