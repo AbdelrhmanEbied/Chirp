@@ -21,7 +21,6 @@ terraform {
   }
 
   backend "s3" {
-    bucket         = "chirp-terraform-state"
     key            = "prod/terraform.tfstate"
     region         = "ca-central-1"
     use_lockfile   = true

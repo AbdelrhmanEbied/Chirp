@@ -38,17 +38,19 @@ fi
 
 if ! command -v k6 &>/dev/null; then
   log "Installing k6"
-  curl -sS https://dl.k6.io/key.gpg | sudo gpg --dearmor --yes -o /usr/share/keyrings/k6-archive-keyring.gpg
-  echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
-  sudo apt-get update -qq && sudo apt-get install -y -qq --allow-unauthenticated k6
+  curl -sS https://github.com/grafana/k6/releases/download/v0.49.0/k6-v0.49.0-linux-amd64.tar.gz | tar xz
+  sudo mv k6-v0.49.0-linux-amd64/k6 /usr/local/bin/k6
+  rm -rf k6-v0.49.0-linux-amd64
 fi
 
 log "Step 1: Checking Terraform state bucket"
-if ! aws s3api head-bucket --bucket chirp-terraform-state 2>/dev/null; then
-  log "Creating Terraform state bucket"
-  aws s3 mb s3://chirp-terraform-state --region "$REGION"
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+TF_BUCKET="chirp-terraform-${ACCOUNT_ID}"
+if ! aws s3api head-bucket --bucket "$TF_BUCKET" 2>/dev/null; then
+  log "Creating Terraform state bucket: $TF_BUCKET"
+  aws s3 mb "s3://$TF_BUCKET" --region "$REGION"
 else
-  log "Bucket already exists"
+  log "Bucket $TF_BUCKET already exists"
 fi
 
 log "Step 2: Generating secrets"
@@ -61,7 +63,7 @@ log "Secrets saved to .env.secrets"
 
 log "Step 3: Deploying infrastructure with Terraform"
 cd infra/terraform
-terraform init
+terraform init -backend-config="bucket=$TF_BUCKET"
 terraform plan -out=tfplan
 terraform apply tfplan
 cd ../..
