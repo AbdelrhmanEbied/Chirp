@@ -8,6 +8,34 @@ ECR_REPO="chirp-prod"
 
 log() { echo -e "\033[1;36m==> $1\033[0m"; }
 
+if ! command -v terraform &>/dev/null; then
+  log "Installing Terraform"
+  sudo apt-get update -qq && sudo apt-get install -y -qq gnupg software-properties-common curl
+  curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+  echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+  sudo apt-get update -qq && sudo apt-get install -y -qq terraform
+fi
+
+if ! command -v kubectl &>/dev/null; then
+  log "Installing kubectl"
+  curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+  sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+  rm kubectl
+fi
+
+if ! command -v helm &>/dev/null; then
+  log "Installing Helm"
+  curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+fi
+
+if ! command -v k6 &>/dev/null; then
+  log "Installing k6"
+  sudo gpg -k
+  sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D68
+  echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+  sudo apt-get update -qq && sudo apt-get install -y -qq k6
+fi
+
 log "Step 1: Creating Terraform state bucket"
 aws s3 mb s3://chirp-terraform-state --region "$REGION" 2>/dev/null || true
 aws dynamodb create-table \
