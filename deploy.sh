@@ -4,13 +4,12 @@ set -euo pipefail
 REGION="us-east-1"
 CLUSTER="chirp-prod"
 NAMESPACE="chirp-prod"
-ECR_REPO="chirp-prod"
 
 log() { echo -e "\033[1;36m==> $1\033[0m"; }
 
 if ! command -v aws &>/dev/null; then
   log "Installing AWS CLI"
-  curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+  curl "https://awscli.amazonaws.com/awscli-exe-linux-x64.zip" -o "awscliv2.zip"
   unzip -q awscliv2.zip
   sudo ./aws/install
   rm -rf aws awscliv2.zip
@@ -45,30 +44,48 @@ if ! command -v k6 &>/dev/null; then
   rm -rf /tmp/k6*
 fi
 
-log "Step 1: Checking Terraform state bucket"
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 TF_BUCKET="chirp-terraform-${ACCOUNT_ID}"
-if ! aws s3api head-bucket --bucket "$TF_BUCKET" 2>/dev/null; then
-  log "Creating Terraform state bucket: $TF_BUCKET"
-  aws s3 mb "s3://$TF_BUCKET" --region "$REGION"
-else
-  log "Bucket $TF_BUCKET already exists"
+
+INFRA_READY=false
+if aws eks describe-cluster --name "$CLUSTER" --region "$REGION" &>/dev/null; then
+  INFRA_READY=true
+  log "EKS cluster $CLUSTER already exists — skipping Terraform"
 fi
 
-log "Step 2: Generating secrets"
-export TF_VAR_jwt_secret=$(openssl rand -hex 32)
-export TF_VAR_db_password=$(openssl rand -hex 16)
-echo "JWT_SECRET=$TF_VAR_jwt_secret" > .env.secrets
-echo "DB_PASSWORD=$TF_VAR_db_password" >> .env.secrets
-chmod 600 .env.secrets
-log "Secrets saved to .env.secrets"
+if [ "$INFRA_READY" = false ]; then
+  log "Step 1: Checking Terraform state bucket"
+  if ! aws s3api head-bucket --bucket "$TF_BUCKET" 2>/dev/null; then
+    log "Creating Terraform state bucket: $TF_BUCKET"
+    aws s3 mb "s3://$TF_BUCKET" --region "$REGION"
+  else
+    log "Bucket $TF_BUCKET already exists"
+  fi
 
-log "Step 3: Deploying infrastructure with Terraform"
-cd infra/terraform
-terraform init -backend-config="bucket=$TF_BUCKET" -reconfigure
-terraform plan -out=tfplan
-terraform apply tfplan
-cd ../..
+  log "Step 2: Generating secrets"
+  export TF_VAR_jwt_secret=$(openssl rand -hex 32)
+  export TF_VAR_db_password=$(openssl rand -hex 16)
+  echo "JWT_SECRET=$TF_VAR_jwt_secret" > .env.secrets
+  echo "DB_PASSWORD=$TF_VAR_db_password" >> .env.secrets
+  chmod 600 .env.secrets
+  log "Secrets saved to .env.secrets"
+
+  log "Step 3: Deploying infrastructure with Terraform"
+  cd infra/terraform
+  terraform init -backend-config="bucket=$TF_BUCKET" -reconfigure
+  terraform apply -auto-approve
+  cd ../..
+else
+  log "Step 1-3: Infrastructure already exists, loading secrets"
+  if [ -f .env.secrets ]; then
+    source .env.secrets
+    export TF_VAR_jwt_secret="$JWT_SECRET"
+    export TF_VAR_db_password="$DB_PASSWORD"
+  else
+    log "ERROR: .env.secrets not found. Run without infrastructure first."
+    exit 1
+  fi
+fi
 
 log "Step 4: Configuring kubectl"
 aws eks update-kubeconfig --name "$CLUSTER" --region "$REGION"
@@ -78,8 +95,6 @@ kubectl create namespace "$NAMESPACE" 2>/dev/null || true
 kubectl delete secret chirp-secrets -n "$NAMESPACE" 2>/dev/null || true
 
 ECR_URL=$(cd infra/terraform && terraform output -raw ecr_repository_url)
-ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-ECR_BASE="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/chirp-prod"
 
 kubectl create secret generic chirp-secrets \
   --from-literal=JWT_SECRET="$TF_VAR_jwt_secret" \
