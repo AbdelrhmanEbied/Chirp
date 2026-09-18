@@ -65,7 +65,7 @@ log "Secrets saved to .env.secrets"
 
 log "Step 3: Deploying infrastructure with Terraform"
 cd infra/terraform
-terraform init -backend-config="bucket=$TF_BUCKET"
+terraform init -backend-config="bucket=$TF_BUCKET" -reconfigure
 terraform plan -out=tfplan
 terraform apply tfplan
 cd ../..
