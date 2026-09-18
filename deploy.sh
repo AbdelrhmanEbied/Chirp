@@ -98,7 +98,15 @@ for svc in gateway auth user post graph timeline search notification messaging m
 done
 wait
 
-log "Step 11: Deploying frontend"
+log "Step 11: Deploying monitoring (Prometheus + Grafana)"
+kubectl apply -f k8s/monitoring/prometheus.yaml
+kubectl apply -f k8s/monitoring/grafana.yaml
+kubectl apply -f k8s/monitoring/ingress.yaml
+kubectl rollout status deployment/prometheus -n monitoring --timeout=120s &
+kubectl rollout status deployment/grafana -n monitoring --timeout=120s &
+wait
+
+log "Step 12: Deploying frontend"
 cd web && npm run build
 FRONTEND_BUCKET=$(cd ../infra/terraform && terraform output -raw s3_frontend_bucket)
 CF_ID=$(cd ../infra/terraform && terraform output -raw cloudfront_distribution_id)
@@ -117,6 +125,13 @@ log ""
 log "Frontend URL:"
 CF_DOMAIN=$(cd infra/terraform && terraform output -raw cloudfront_domain)
 echo "  https://$CF_DOMAIN"
+log ""
+log "Grafana Dashboard:"
+MON_ALB=$(kubectl get ingress monitoring-ingress -n monitoring -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "pending")
+echo "  https://$MON_ALB/grrafana  (user: admin / pass: admin)"
+log ""
+log "Prometheus:"
+echo "  https://$MON_ALB/prometheus"
 log ""
 log "To check pod status:"
 echo "  kubectl get pods -n $NAMESPACE"
