@@ -1,7 +1,3 @@
-"""Initial post schema: posts, likes, reposts, bookmarks, processed events.
-
-Revision ID: 0001
-"""
 
 from alembic import op
 import sqlalchemy as sa

@@ -1,8 +1,3 @@
-"""Timeline service models.
-
-FeedEntry stores pre-computed home feed entries (fan-out-on-write).
-The timeline worker populates this table when posts are created.
-"""
 
 from __future__ import annotations
 

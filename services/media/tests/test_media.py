@@ -46,7 +46,6 @@ async def test_upload_and_get_media(client: AsyncClient, context) -> None:
     assert response.status_code == 201
     media_id = response.json()["id"]
 
-    # Get the media
     get_resp = await client.get(f"/api/v1/media/{media_id}", headers=headers)
     assert get_resp.status_code == 200
     assert get_resp.json()["content_type"] == "image/png"

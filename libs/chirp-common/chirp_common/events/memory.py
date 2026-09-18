@@ -1,16 +1,9 @@
-"""In-process event bus for tests.
-
-Same interface as the Redis implementation, so event-handling tests exercise
-the real handler code and the real envelope without a broker running.
-"""
-
 from __future__ import annotations
 
 from collections import defaultdict, deque
 from collections.abc import Sequence
 
 from chirp_common.events.envelope import EventEnvelope, EventType
-
 
 class InMemoryEventBus:
     def __init__(self, service_name: str = "test") -> None:

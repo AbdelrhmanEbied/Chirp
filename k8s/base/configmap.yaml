@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chirp-config
+  namespace: chirp-prod
+data:
+  ENVIRONMENT: "production"
+  LOG_LEVEL: "INFO"
+  LOG_JSON: "true"
+  JWT_ALGORITHM: "HS256"
+  JWT_ISSUER: "chirp.auth"
+  JWT_AUDIENCE: "chirp.api"
+  ACCESS_TOKEN_TTL_SECONDS: "900"
+  CORS_ORIGINS: "https://chirp.yourdomain.com"
+  REQUEST_MAX_BYTES: "2097152"
+  EVENT_BUS_BACKEND: "redis"
+  EVENT_STREAM_PREFIX: "chirp.events"
+  EVENT_MAX_DELIVERY_ATTEMPTS: "5"
+  EVENT_CLAIM_IDLE_MS: "60000"
+  EVENT_BATCH_SIZE: "32"
+  EVENT_MAX_STREAM_LENGTH: "100000"
+  REFRESH_TOKEN_TTL_SECONDS: "2592000"
+  DB_POOL_SIZE: "10"
+  DB_MAX_OVERFLOW: "5"
+  DB_STATEMENT_TIMEOUT_MS: "5000"
+  CACHE_ENABLED: "true"
+  CACHE_DEFAULT_TTL_SECONDS: "60"
+  MEDIA_STORAGE_BACKEND: "s3"
+  S3_REGION: "us-east-1"
+  S3_PREFIX: "media/"

@@ -1,5 +1,3 @@
-"""HTTP middleware: request context, access logging, metrics, body limits."""
-
 from __future__ import annotations
 
 import logging
@@ -19,22 +17,14 @@ from chirp_common.metrics import (
 
 log = logging.getLogger("chirp.access")
 
-
 def route_template(request: Request) -> str:
-    """Return the route pattern, not the concrete path.
-
-    Labelling metrics with `/api/v1/posts/{post_id}` keeps cardinality bounded;
-    labelling with the raw path would create one time series per post id.
-    """
     for route in request.app.routes:
         match, _ = route.matches(request.scope)
         if match is Match.FULL:
             return getattr(route, "path", request.url.path)
     return "unmatched"
 
-
 class RequestContextMiddleware(BaseHTTPMiddleware):
-    """Bind request and correlation ids for the lifetime of the request."""
 
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
@@ -53,9 +43,7 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
             response.headers[context.CORRELATION_ID_HEADER] = ctx.correlation_id
             return response
 
-
 class AccessLogMiddleware(BaseHTTPMiddleware):
-    """One structured log line and one metric observation per request."""
 
     def __init__(self, app, service_name: str) -> None:
         super().__init__(app)
@@ -97,13 +85,7 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
                 },
             )
 
-
 class BodySizeLimitMiddleware(BaseHTTPMiddleware):
-    """Reject oversized bodies before they are buffered.
-
-    Checks `Content-Length` up front. Chunked uploads without the header are
-    the media service's problem and are bounded by its own streaming limit.
-    """
 
     def __init__(self, app, max_bytes: int) -> None:
         super().__init__(app)

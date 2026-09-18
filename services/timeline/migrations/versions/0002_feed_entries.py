@@ -1,7 +1,3 @@
-"""Add feed_entries table for fan-out-on-write timeline.
-
-Revision ID: 0002
-"""
 
 from alembic import op
 import sqlalchemy as sa

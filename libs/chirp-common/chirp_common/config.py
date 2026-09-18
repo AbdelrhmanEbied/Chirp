@@ -1,15 +1,3 @@
-"""Configuration.
-
-All configuration comes from environment variables. Nothing is hard-coded and
-nothing is read from a file at runtime (Compose loads `.env` for local dev;
-in Kubernetes the same variables come from ConfigMaps/Secrets).
-
-Each service subclasses `ServiceSettings` and adds what it needs. Settings are
-constructed once at startup and injected, never imported as a module-level
-singleton from request handlers, so tests can build a settings object with
-different values without touching the process environment.
-"""
-
 from __future__ import annotations
 
 from functools import lru_cache
@@ -20,9 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Environment = Literal["local", "test", "staging", "production"]
 
-
 class ServiceSettings(BaseSettings):
-    """Settings every Chirp service has."""
 
     model_config = SettingsConfigDict(
         env_file=None,
@@ -38,15 +24,12 @@ class ServiceSettings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
 
-    # Shared JWT signing material. Every service verifies access tokens
-    # locally; only the auth service ever mints them.
     jwt_secret: str = Field(min_length=16)
     jwt_algorithm: str = "HS256"
     jwt_issuer: str = "chirp.auth"
     jwt_audience: str = "chirp.api"
     access_token_ttl_seconds: int = 900
 
-    # Outbound calls to sibling services.
     http_timeout_seconds: float = 3.0
     http_connect_timeout_seconds: float = 1.0
     http_max_retries: int = 2
@@ -67,9 +50,7 @@ class ServiceSettings(BaseSettings):
     def is_production_like(self) -> bool:
         return self.environment in ("staging", "production")
 
-
 class DatabaseSettings(BaseSettings):
-    """Mixed into services that own a database."""
 
     model_config = SettingsConfigDict(extra="ignore", case_sensitive=False)
 
@@ -82,9 +63,7 @@ class DatabaseSettings(BaseSettings):
     db_statement_timeout_ms: int = 5000
     db_application_name: str = "chirp"
 
-
 class RedisSettings(BaseSettings):
-    """Mixed into services that use Redis for cache, counters or the bus."""
 
     model_config = SettingsConfigDict(extra="ignore", case_sensitive=False)
 
@@ -93,13 +72,7 @@ class RedisSettings(BaseSettings):
     cache_enabled: bool = True
     cache_default_ttl_seconds: int = 60
 
-
 class EventBusSettings(BaseSettings):
-    """Broker configuration.
-
-    `event_bus_backend` is the seam: swapping `redis` for `sqs`/`kafka` is a
-    new `EventBus` implementation plus this value, not an application change.
-    """
 
     model_config = SettingsConfigDict(extra="ignore", case_sensitive=False)
 
@@ -114,9 +87,7 @@ class EventBusSettings(BaseSettings):
     event_block_ms: int = 5_000
     event_max_stream_length: int = 100_000
 
-
 def cached_settings[T: BaseSettings](factory: type[T]):
-    """Return a process-wide cached settings loader for `factory`."""
 
     @lru_cache(maxsize=1)
     def _load() -> T:

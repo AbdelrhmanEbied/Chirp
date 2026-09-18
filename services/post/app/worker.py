@@ -1,8 +1,3 @@
-"""Post service event consumer.
-
-Runs as a separate process. Consumes events that affect post counts
-or need post-service side effects.
-"""
 
 from __future__ import annotations
 

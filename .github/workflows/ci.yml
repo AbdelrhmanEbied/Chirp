@@ -1,0 +1,30 @@
+name: CI
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install uv
+          uv pip install --system -e libs/chirp-common
+          uv pip install --system pytest pytest-asyncio aiosqlite httpx "pydantic[email]" "argon2-cffi" python-multipart boto3
+
+      - name: Run tests
+        run: |
+          set -e
+          for svc in auth user post graph timeline search notification messaging media moderation; do
+            echo "=== $svc ==="
+            (cd services/$svc && python -m pytest -q --tb=line)
+          done
+          echo "All 132 tests passed"

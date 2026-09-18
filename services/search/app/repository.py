@@ -35,7 +35,6 @@ class PostSearchRepository:
         cursor: str | None = None,
         sort: str = "relevance",
     ) -> tuple[list[PostSearch], str | None]:
-        """Search posts using FTS on PostgreSQL or ILIKE on SQLite."""
         dialect = self._session.bind.dialect.name
 
         if dialect == "postgresql":
@@ -49,7 +48,6 @@ class PostSearchRepository:
         cursor: str | None,
         sort: str,
     ) -> tuple[list[PostSearch], str | None]:
-        """PostgreSQL: FTS + trigram hybrid with ts_rank."""
         from sqlalchemy.dialects.postgresql import TSVECTOR, insert as pg_insert
 
         tsquery = func.plainto_tsquery("english", query)
@@ -65,7 +63,6 @@ class PostSearchRepository:
                 .order_by(similarity.desc(), PostSearch.created_at_index.desc())
             )
         else:
-            # Relevance: FTS rank + trigram similarity hybrid
             ts_rank = func.ts_rank(text_search, tsquery)
             similarity = func.similarity(PostSearch.text, query)
             stmt = (
@@ -89,7 +86,6 @@ class PostSearchRepository:
         cursor: str | None,
         sort: str,
     ) -> tuple[list[PostSearch], str | None]:
-        """SQLite fallback: ILIKE substring search (tests only)."""
         if sort == "similarity":
             stmt = select(PostSearch).order_by(PostSearch.created_at_index.desc())
         else:
@@ -104,7 +100,6 @@ class PostSearchRepository:
     async def _paginate(
         self, stmt, limit: int, cursor: str | None
     ) -> tuple[list[PostSearch], str | None]:
-        """Apply cursor pagination to any query."""
         if cursor:
             cursor_parts = decode_cursor(cursor)
             if ":" in cursor_parts:

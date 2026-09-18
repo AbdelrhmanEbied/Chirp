@@ -115,7 +115,6 @@ async def test_mark_read_requires_auth(client: AsyncClient) -> None:
 
 
 async def test_notification_type_variations(client: AsyncClient, context) -> None:
-    """Test all notification types are handled correctly."""
     types = ["post_liked", "reply_created", "quote_created", "user_followed", "user_mentioned", "message_sent"]
     async with context.database.session() as session:
         svc = NotificationService(

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: timeline-svc
+  namespace: chirp-prod
+  labels:
+    app: timeline
+spec:
+  type: ClusterIP
+  selector:
+    app: timeline
+  ports:
+    - port: 8005
+      targetPort: 8005
+      protocol: TCP

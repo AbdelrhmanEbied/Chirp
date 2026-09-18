@@ -7,9 +7,7 @@ from chirp_common.ids import new_ulid
 
 TEST_JWT_SECRET = "test-secret-value-not-for-production"
 
-
 def make_settings_env(**overrides: str) -> dict[str, str]:
-    """Environment for constructing settings objects inside tests."""
     env = {
         "SERVICE_NAME": "test-service",
         "ENVIRONMENT": "test",
@@ -20,7 +18,6 @@ def make_settings_env(**overrides: str) -> dict[str, str]:
     }
     env.update(overrides)
     return env
-
 
 def make_event(
     event_type: EventType,

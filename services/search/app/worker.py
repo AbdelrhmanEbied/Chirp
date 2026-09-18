@@ -1,7 +1,3 @@
-"""Search service event consumer.
-
-Runs as a separate process. Consumes events that affect the search index.
-"""
 
 from __future__ import annotations
 

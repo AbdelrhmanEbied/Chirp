@@ -1,4 +1,3 @@
-"""Timeline service domain logic."""
 
 from __future__ import annotations
 
@@ -28,14 +27,9 @@ class TimelineService:
     async def get_home_feed(
         self, user_id: str, limit: int, cursor: str | None
     ) -> FeedResponse:
-        """Build the authenticated user's home feed.
-
-        Fan-out on write: reads from pre-computed feed_entries table.
-        """
         return await self._repo.get_home_feed(user_id, limit, cursor)
 
     async def get_user_timeline(
         self, user_id: str, limit: int, cursor: str | None
     ) -> FeedResponse:
-        """Posts by a specific user."""
         return await self._repo.get_user_timeline(user_id, limit, cursor)

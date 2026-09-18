@@ -1,0 +1,132 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: search
+  namespace: chirp-prod
+  labels:
+    app: search
+    service: search
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: search
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: search
+    spec:
+      containers:
+        - name: search
+          image: chirp/search:latest
+          ports:
+            - containerPort: 8006
+          envFrom:
+            - configMapRef:
+                name: chirp-config
+            - secretRef:
+                name: chirp-secrets
+          env:
+            - name: SERVICE_NAME
+              value: "search-service"
+            - name: PORT
+              value: "8006"
+            - name: DB_APPLICATION_NAME
+              value: "search-service"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: chirp-secrets
+                  key: DATABASE_URL_SEARCH
+            - name: USER_SERVICE_URL
+              value: "http://user-svc.chirp-prod.svc.cluster.local:8002"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8006
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8006
+            initialDelaySeconds: 5
+            periodSeconds: 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: search-worker
+  namespace: chirp-prod
+  labels:
+    app: search-worker
+    service: search
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: search-worker
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: search-worker
+    spec:
+      containers:
+        - name: search-worker
+          image: chirp/search:latest
+          command: ["celery", "-A", "app.worker", "worker", "--loglevel=info"]
+          envFrom:
+            - configMapRef:
+                name: chirp-config
+            - secretRef:
+                name: chirp-secrets
+          env:
+            - name: SERVICE_NAME
+              value: "search-service"
+            - name: PORT
+              value: "8006"
+            - name: DB_APPLICATION_NAME
+              value: "search-service"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: chirp-secrets
+                  key: DATABASE_URL_SEARCH
+            - name: USER_SERVICE_URL
+              value: "http://user-svc.chirp-prod.svc.cluster.local:8002"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8006
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8006
+            initialDelaySeconds: 5
+            periodSeconds: 5

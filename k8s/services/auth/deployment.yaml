@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth
+  namespace: chirp-prod
+  labels:
+    app: auth
+    service: auth
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: auth
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: auth
+    spec:
+      containers:
+        - name: auth
+          image: chirp/auth:latest
+          ports:
+            - containerPort: 8001
+          envFrom:
+            - configMapRef:
+                name: chirp-config
+            - secretRef:
+                name: chirp-secrets
+          env:
+            - name: SERVICE_NAME
+              value: "auth-service"
+            - name: PORT
+              value: "8001"
+            - name: DB_APPLICATION_NAME
+              value: "auth-service"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: chirp-secrets
+                  key: DATABASE_URL_AUTH
+            - name: USER_SERVICE_URL
+              value: "http://user-svc.chirp-prod.svc.cluster.local:8002"
+          resources:
+            requests:
+              cpu: 250m
+              memory: 128Mi
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8001
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8001
+            initialDelaySeconds: 5
+            periodSeconds: 5

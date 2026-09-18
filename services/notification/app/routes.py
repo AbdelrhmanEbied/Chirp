@@ -1,4 +1,3 @@
-"""HTTP surface of the notification service."""
 
 from __future__ import annotations
 

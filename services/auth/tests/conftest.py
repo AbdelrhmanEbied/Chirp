@@ -1,10 +1,3 @@
-"""Test fixtures for the auth service.
-
-The suite runs against SQLite by default so `make test` needs no containers.
-Set `TEST_DATABASE_URL=postgresql+asyncpg://...` to run the same tests against
-PostgreSQL, which is what `make test-integration` does inside Compose. Any test
-that depends on PostgreSQL-specific behaviour is marked `requires_postgres`.
-"""
 
 from __future__ import annotations
 
@@ -32,12 +25,6 @@ TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "sqlite+aiosqlite:///:me
 
 
 class FakeUserClient:
-    """Stands in for the user service.
-
-    `created` records the calls so tests can assert the registration
-    handshake happened, and `failure` lets a test simulate the user service
-    rejecting a duplicate username.
-    """
 
     def __init__(self) -> None:
         self.created: list[dict[str, Any]] = []

@@ -55,7 +55,6 @@ class ConversationRepository:
         return list(await self._session.scalars(stmt))
 
     async def find_dm_conversation(self, user_a: str, user_b: str) -> Conversation | None:
-        """Find an existing 1:1 conversation between two users."""
         stmt = (
             select(Conversation)
             .join(
@@ -157,7 +156,6 @@ class MessageRepository:
         return result.scalar() or 0
 
     async def count_unread_for_user(self, user_id: str) -> int:
-        """Count total unread messages across all conversations for a user."""
         subquery = (
             select(ConversationParticipant.conversation_id, ConversationParticipant.last_read_at)
             .where(ConversationParticipant.user_id == user_id)
@@ -172,10 +170,7 @@ class MessageRepository:
                 Message.sender_id != user_id,
             )
         )
-        # We'll handle the last_read_at filter in Python for simplicity
         result = await self._session.execute(stmt)
         total = result.scalar() or 0
 
-        # Subtract messages that were read (this is approximate; a proper impl
-        # would filter per-conversation, but this is good enough for the MVP).
         return total

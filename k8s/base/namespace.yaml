@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: chirp-prod
+  labels:
+    app.kubernetes.io/part-of: chirp
+    environment: production

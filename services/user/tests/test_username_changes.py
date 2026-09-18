@@ -21,7 +21,6 @@ async def test_username_can_be_changed(client: AsyncClient, ada, token) -> None:
 async def test_old_username_cannot_be_claimed_by_someone_else(
     client: AsyncClient, ada, token
 ) -> None:
-    """A freed handle is parked so it cannot be used to impersonate."""
     await client.put(
         "/api/v1/users/me/username", headers=token(ADA_ID), json={"username": "countess"}
     )

@@ -1,9 +1,3 @@
-"""HTTP surface of the graph service.
-
-Two routers, because they have different audiences and different exposure:
-`/api/v1/graph/...` is reachable through the gateway, `/internal/v1/...` is
-called only by sibling services and is not routed publicly.
-"""
 
 from __future__ import annotations
 
@@ -139,9 +133,6 @@ async def list_my_blocks(
 async def check_blocks(
     payload: CheckBlocksRequest, service: Graph
 ) -> CheckBlocksResponse:
-    # Internal endpoint: user_id comes from the request body, not auth.
-    # This is called by other services to check if a set of users are blocked
-    # by a specific user.
     return await service.check_blocks(
         payload.blocker_id, payload.target_ids
     )

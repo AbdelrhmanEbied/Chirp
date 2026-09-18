@@ -1,20 +1,3 @@
-"""Redis Streams implementation of the event bus.
-
-Why Redis Streams for local development (see docs/decisions.md):
-Redis is already in the stack for cache, counters and rate limiting, so this
-adds no extra container to a laptop. Streams give consumer groups, per-consumer
-pending lists, redelivery of unacknowledged entries and an id per entry -- the
-primitives needed to write consumers that behave like real queue consumers.
-
-What it does not give, and what production would: durable multi-day retention,
-partitioned ordering, and broker-side dead-letter policy. Those are why the
-interface is abstracted rather than used directly.
-
-Topology: one stream per event type (`chirp.events.post.created`), one consumer
-group per consuming service, one consumer name per process instance. Streams
-are capped with MAXLEN ~ so a laptop does not fill its memory.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -32,7 +15,6 @@ log = logging.getLogger(__name__)
 
 DLQ_SUFFIX = "dlq"
 
-
 class RedisStreamsEventBus:
     def __init__(self, settings: EventBusSettings, *, service_name: str) -> None:
         self._settings = settings
@@ -40,8 +22,6 @@ class RedisStreamsEventBus:
         self._client = redis.from_url(
             settings.event_bus_url, decode_responses=True, socket_timeout=5, socket_connect_timeout=2, max_connections=20,
         )
-
-    # ------------------------------------------------------------------ publish
 
     async def publish(self, event: EventEnvelope) -> None:
         await self.publish_many([event])
@@ -87,7 +67,6 @@ class RedisStreamsEventBus:
                 approximate=True,
             )
         except RedisError as exc:
-            # Nothing left to fall back to; log loudly and drop.
             log.error(
                 "dead letter write failed",
                 extra={"event_id": event.id, "error": str(exc)},
@@ -98,8 +77,6 @@ class RedisStreamsEventBus:
             extra={"event_id": event.id, "event_type": event.type.value, "reason": reason},
         )
 
-    # ------------------------------------------------------------------ consume
-
     def _stream(self, event_type: EventType) -> str:
         return f"{self._settings.event_stream_prefix}.{event_type.value}"
 
@@ -107,7 +84,6 @@ class RedisStreamsEventBus:
         for event_type in types:
             stream = self._stream(event_type)
             try:
-                # mkstream so a consumer can start before the first producer.
                 await self._client.xgroup_create(stream, consumer, id="0", mkstream=True)
                 log.info("consumer group created", extra={"stream": stream, "group": consumer})
             except ResponseError as exc:
@@ -119,7 +95,6 @@ class RedisStreamsEventBus:
     async def read(
         self, consumer: str, instance: str, types: Sequence[EventType]
     ) -> list[tuple[str, str, EventEnvelope, int]]:
-        """Claim stale pending entries first, then read new ones."""
         results = await self._claim_stale(consumer, instance, types)
         if results:
             return results
@@ -146,12 +121,6 @@ class RedisStreamsEventBus:
     async def _claim_stale(
         self, consumer: str, instance: str, types: Sequence[EventType]
     ) -> list[tuple[str, str, EventEnvelope, int]]:
-        """Take over entries another instance read but never acknowledged.
-
-        This is what makes a consumer crash recoverable: the entry stays in the
-        group's pending list and a surviving instance claims it once it has
-        been idle long enough.
-        """
         claimed: list[tuple[str, str, EventEnvelope, int]] = []
         for event_type in types:
             stream = self._stream(event_type)
@@ -164,7 +133,7 @@ class RedisStreamsEventBus:
                     count=self._settings.event_batch_size,
                 )
             except ResponseError:
-                continue  # group not created yet
+                continue
             except RedisError as exc:
                 raise DependencyError("Event bus claim failed.") from exc
 
@@ -196,8 +165,6 @@ class RedisStreamsEventBus:
         try:
             event = EventEnvelope.model_validate_json(raw)
         except ValueError:
-            # Unparseable entries can never succeed; acknowledging is handled
-            # by the worker after it dead-letters the raw payload.
             log.error("event envelope could not be parsed", extra={"stream": stream})
             return None
         return stream, entry_id, event, attempt
@@ -206,8 +173,6 @@ class RedisStreamsEventBus:
         try:
             await self._client.xack(stream, consumer, entry_id)
         except RedisError as exc:
-            # Not acknowledging means redelivery, which idempotent consumers
-            # already tolerate, so this is a warning rather than a failure.
             log.warning("event ack failed", extra={"stream": stream, "error": str(exc)})
 
     async def report_depth(self, consumer: str, types: Sequence[EventType]) -> None:

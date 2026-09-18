@@ -1,0 +1,113 @@
+name: CD
+on:
+  push:
+    branches: [main]
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: chirp-prod
+  EKS_CLUSTER: chirp-prod
+  K8S_NAMESPACE: chirp-prod
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install and test
+        run: |
+          pip install uv
+          uv pip install --system -e libs/chirp-common
+          uv pip install --system pytest pytest-asyncio aiosqlite httpx "pydantic[email]" "argon2-cffi" python-multipart boto3
+          set -e
+          for svc in auth user post graph timeline search notification messaging media moderation; do
+            (cd services/$svc && python -m pytest -q --tb=line)
+          done
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image tag
+        id: meta
+        run: echo "version=${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push images
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ steps.meta.outputs.version }}
+        run: |
+          for svc in gateway auth user post graph timeline search notification messaging media moderation; do
+            echo "Building $svc..."
+            docker build \
+              -t $ECR_REGISTRY/$ECR_REPOSITORY-$svc:$IMAGE_TAG \
+              -t $ECR_REGISTRY/$ECR_REPOSITORY-$svc:latest \
+              -f services/$svc/Dockerfile .
+            docker push $ECR_REGISTRY/$ECR_REPOSITORY-$svc:$IMAGE_TAG
+            docker push $ECR_REGISTRY/$ECR_REPOSITORY-$svc:latest
+          done
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
+
+      - name: Install kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Update image tags
+        env:
+          IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          for svc in gateway auth user post graph timeline search notification messaging media moderation; do
+            sed -i "s|image: .*|image: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com/chirp-prod-$svc:$IMAGE_TAG|g" \
+              k8s/services/$svc/deployment.yaml
+          done
+
+      - name: Deploy migrations
+        run: |
+          for svc in auth user post graph timeline search notification messaging media moderation; do
+            kubectl delete job $svc-migrate -n $K8S_NAMESPACE --ignore-not-found
+            kubectl apply -f k8s/services/$svc/job-migrate.yaml
+            kubectl wait --for=condition=complete job/$svc-migrate -n $K8S_NAMESPACE --timeout=120s
+          done
+
+      - name: Deploy services
+        run: |
+          kubectl apply -f k8s/base/
+          kubectl apply -f k8s/services/
+          kubectl apply -f k8s/ingress/
+          kubectl rollout status deployment/gateway -n $K8S_NAMESPACE --timeout=300s

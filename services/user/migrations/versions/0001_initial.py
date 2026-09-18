@@ -1,7 +1,3 @@
-"""Initial user schema: profiles, username history, processed events.
-
-Revision ID: 0001
-"""
 
 from alembic import op
 import sqlalchemy as sa
@@ -15,8 +11,6 @@ depends_on = None
 def upgrade() -> None:
     op.create_table(
         "user_profiles",
-        # Same value as the auth service's account id. No foreign key: that
-        # row lives in another service's database.
         sa.Column("id", sa.String(26), primary_key=True),
         sa.Column("username", sa.String(20), nullable=False),
         sa.Column("display_name", sa.String(50), nullable=False),

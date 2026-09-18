@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: messaging-svc
+  namespace: chirp-prod
+  labels:
+    app: messaging
+spec:
+  type: ClusterIP
+  selector:
+    app: messaging
+  ports:
+    - port: 8008
+      targetPort: 8008
+      protocol: TCP

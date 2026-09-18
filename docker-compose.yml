@@ -1,15 +1,3 @@
-# Local development topology.
-#
-# Deliberately NOT a production topology. One PostgreSQL server holds one
-# database per service, one Redis serves cache and the event bus on separate
-# logical databases, and there is no ingress, TLS or autoscaling. Those are
-# the deployment concerns this repository leaves to you.
-#
-# Migrations run as one-shot containers that the API containers wait on
-# (service_completed_successfully), which is the Compose equivalent of a
-# Kubernetes Job in an init phase. Nothing in an application container runs
-# migrations at boot, so scaling an API to N replicas does not race N
-# migrations against each other.
 
 x-common-env: &common-env
   ENVIRONMENT: ${ENVIRONMENT:-local}
@@ -64,7 +52,6 @@ x-worker-service: &worker-service
         memory: 64M
 
 services:
-  # ----------------------------------------------------------------- infrastructure
   postgres:
     image: postgres:16-alpine
     <<: *api-service
@@ -98,7 +85,6 @@ services:
       timeout: 3s
       retries: 10
 
-  # ----------------------------------------------------------------- auth
   auth-migrate:
     build:
       context: .
@@ -131,7 +117,6 @@ services:
       redis:
         condition: service_healthy
 
-  # ----------------------------------------------------------------- user
   user-migrate:
     build:
       context: .
@@ -179,7 +164,6 @@ services:
       redis:
         condition: service_healthy
 
-  # ----------------------------------------------------------------- post
   post-migrate:
     build:
       context: .
@@ -227,7 +211,6 @@ services:
       redis:
         condition: service_healthy
 
-  # ----------------------------------------------------------------- graph
   graph-migrate:
     build:
       context: .
@@ -259,7 +242,6 @@ services:
       redis:
         condition: service_healthy
 
-  # ----------------------------------------------------------------- timeline
   timeline-migrate:
     build:
       context: .
@@ -314,7 +296,6 @@ services:
       redis:
         condition: service_healthy
 
-  # ----------------------------------------------------------------- search
   search-migrate:
     build:
       context: .
@@ -362,7 +343,6 @@ services:
       redis:
         condition: service_healthy
 
-  # ----------------------------------------------------------------- notification
   notification-migrate:
     build:
       context: .
@@ -410,7 +390,6 @@ services:
       redis:
         condition: service_healthy
 
-  # ----------------------------------------------------------------- messaging
   messaging-migrate:
     build:
       context: .
@@ -443,7 +422,6 @@ services:
       redis:
         condition: service_healthy
 
-  # ----------------------------------------------------------------- media
   media-migrate:
     build:
       context: .
@@ -486,7 +464,6 @@ services:
     volumes:
       - media-uploads:/srv/uploads
 
-  # ----------------------------------------------------------------- moderation
   moderation-migrate:
     build:
       context: .
@@ -518,7 +495,6 @@ services:
       redis:
         condition: service_healthy
 
-  # ----------------------------------------------------------------- gateway
   gateway:
     build:
       context: .
@@ -561,7 +537,6 @@ services:
       moderation:
         condition: service_started
 
-  # ----------------------------------------------------------------- monitoring
   prometheus:
     image: prom/prometheus:latest
     <<: *api-service

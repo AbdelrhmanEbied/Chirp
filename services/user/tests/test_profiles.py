@@ -7,8 +7,6 @@ from tests.conftest import ADA_ID
 
 
 async def test_create_profile_is_idempotent(client: AsyncClient) -> None:
-    """The auth service retries this call after a timeout, so a repeat must
-    return the same profile rather than a conflict."""
     payload = {"user_id": ADA_ID, "username": "ada", "display_name": "Ada Lovelace"}
     first = await client.post("/internal/v1/users", json=payload)
     second = await client.post("/internal/v1/users", json=payload)

@@ -1,8 +1,3 @@
-"""Data access for the auth service.
-
-Keeping SQL behind a repository means the service layer is testable without a
-database and the query shapes are all visible in one file when tuning indexes.
-"""
 
 from __future__ import annotations
 
@@ -88,8 +83,6 @@ class SessionRepository:
         return int(result.rowcount or 0)
 
     async def prune_oldest(self, account_id: str, keep: int) -> int:
-        """Cap concurrent sessions so a stolen credential cannot accumulate
-        an unbounded number of long-lived refresh tokens."""
         active = await self.list_active(account_id)
         surplus = active[keep:]
         for record in surplus:

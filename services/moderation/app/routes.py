@@ -1,4 +1,3 @@
-"""HTTP surface of the moderation service."""
 
 from __future__ import annotations
 

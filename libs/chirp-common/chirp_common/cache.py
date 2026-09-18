@@ -1,15 +1,3 @@
-"""Cache abstraction.
-
-Rules this codebase follows, and the reasoning is in docs/decisions.md:
-
-* Redis is never the source of truth. Every cached value can be recomputed
-  from PostgreSQL.
-* A cache failure is a miss, not an error. If Redis is down the request is
-  slower, not broken.
-* Writes invalidate rather than update, so a failed invalidation costs one
-  stale TTL window instead of permanently wrong data.
-"""
-
 from __future__ import annotations
 
 import json
@@ -23,7 +11,6 @@ from chirp_common.metrics import cache_operations_total
 
 log = logging.getLogger(__name__)
 
-
 class Cache(Protocol):
     async def get(self, key: str) -> Any | None: ...
     async def set(self, key: str, value: Any, ttl_seconds: int | None = None) -> None: ...
@@ -32,9 +19,7 @@ class Cache(Protocol):
         self, key: str, loader: Callable[[], Awaitable[Any]], ttl_seconds: int | None = None
     ) -> Any: ...
 
-
 class NullCache:
-    """Used in tests and when caching is disabled. Always a miss."""
 
     async def get(self, key: str) -> Any | None:
         return None
@@ -49,7 +34,6 @@ class NullCache:
         self, key: str, loader: Callable[[], Awaitable[Any]], ttl_seconds: int | None = None
     ) -> Any:
         return await loader()
-
 
 class RedisCache:
     def __init__(
@@ -85,7 +69,6 @@ class RedisCache:
         try:
             return json.loads(raw)
         except json.JSONDecodeError:
-            # Poisoned entry (format change, truncated write): drop and miss.
             await self.delete(key)
             return None
 

@@ -1,10 +1,3 @@
-"""Structured JSON logging.
-
-One line per event, machine-parseable, with request/correlation ids attached
-automatically from the ambient context so call sites never have to thread them
-through manually.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -12,23 +5,19 @@ import sys
 from typing import Any
 
 try:
-    # python-json-logger >= 3.1 moved the formatter here; the old path still
-    # works but emits a DeprecationWarning on import.
     from pythonjsonlogger.json import JsonFormatter
-except ImportError:  # pragma: no cover - older python-json-logger
+except ImportError:# pragma: no cover - older python-json-logger
     from pythonjsonlogger.jsonlogger import JsonFormatter
 
 from chirp_common import context
 
 _CONFIGURED = False
 
-
 class _ContextFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         for key, value in context.log_fields().items():
             setattr(record, key, value)
         return True
-
 
 class _Formatter(JsonFormatter):
     def add_fields(
@@ -42,9 +31,7 @@ class _Formatter(JsonFormatter):
         log_record["logger"] = record.name
         log_record.pop("taskName", None)
 
-
 def configure_logging(service_name: str, level: str = "INFO", *, json: bool = True) -> None:
-    """Install the JSON handler on the root logger. Idempotent."""
     global _CONFIGURED
     if _CONFIGURED:
         return
@@ -65,15 +52,12 @@ def configure_logging(service_name: str, level: str = "INFO", *, json: bool = Tr
     root.addHandler(handler)
     root.setLevel(level.upper())
 
-    # uvicorn duplicates access logs that our middleware already emits with
-    # richer fields; silence its access logger and let ours be the source.
     logging.getLogger("uvicorn.access").disabled = True
     logging.getLogger("uvicorn.error").propagate = True
 
     logging.LoggerAdapter(root, {"service": service_name})
     root.info("logging configured", extra={"service": service_name})
     _CONFIGURED = True
-
 
 def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(name)

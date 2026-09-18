@@ -1,9 +1,3 @@
-"""HTTP surface of the user service.
-
-Two routers, because they have different audiences and different exposure:
-`/api/v1/users/...` is reachable through the gateway, `/internal/v1/...` is
-called only by sibling services and is not routed publicly.
-"""
 
 from __future__ import annotations
 
@@ -27,7 +21,6 @@ internal_router = APIRouter(prefix="/internal/v1", tags=["internal"], include_in
     "/users", response_model=ProfileResponse, status_code=status.HTTP_201_CREATED
 )
 async def create_profile(payload: CreateProfileRequest, service: Users) -> ProfileResponse:
-    """Called by the auth service during registration. Idempotent on user_id."""
     return await service.create_profile(payload)
 
 
@@ -35,7 +28,6 @@ async def create_profile(payload: CreateProfileRequest, service: Users) -> Profi
 async def summaries(
     service: Users, user_ids: list[str] = Body(embed=True)
 ) -> list[ProfileSummary]:
-    """Batch author hydration for timelines, notifications and search."""
     return await service.get_summaries(user_ids)
 
 

@@ -1,0 +1,34 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: user-migrate
+  namespace: chirp-prod
+  labels:
+    app: user
+spec:
+  template:
+    metadata:
+      labels:
+        app: user
+    spec:
+      containers:
+        - name: user-migrate
+          image: chirp/user:latest
+          command: ["alembic", "upgrade", "head"]
+          envFrom:
+            - configMapRef:
+                name: chirp-config
+            - secretRef:
+                name: chirp-secrets
+          env:
+            - name: SERVICE_NAME
+              value: "user-service"
+            - name: PORT
+              value: "8002"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: chirp-secrets
+                  key: DATABASE_URL_USER
+      restartPolicy: Never
+  backoffLimit: 3

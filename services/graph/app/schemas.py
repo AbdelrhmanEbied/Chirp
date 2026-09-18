@@ -33,7 +33,6 @@ class CheckBlocksResponse(BaseModel):
 
 
 class UserSummary(BaseModel):
-    """The shape other services embed when they hydrate an author."""
 
     id: str
     username: str

@@ -1,16 +1,3 @@
-"""The event envelope and the catalogue of event types.
-
-Every event carries the same metadata regardless of broker, which is what
-makes the broker swappable. `payload` is the only part that varies by type.
-
-Envelope fields exist for concrete operational reasons:
-  id              deduplication key for idempotent consumers
-  occurred_at     lets consumers detect and discard out-of-order deliveries
-  correlation_id  ties the event to the user request that caused it
-  causation_id    the request or event id that directly produced this one
-  version         payload schema version, so producers can evolve independently
-"""
-
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -22,9 +9,7 @@ from pydantic import BaseModel, Field
 from chirp_common import context
 from chirp_common.ids import new_ulid
 
-
 class EventType(StrEnum):
-    """Every event in the system. Producers own their own types."""
 
     USER_REGISTERED = "user.registered"
     USER_PROFILE_UPDATED = "user.profile_updated"
@@ -54,9 +39,7 @@ class EventType(StrEnum):
     MEDIA_UPLOADED = "media.uploaded"
     MEDIA_DELETED = "media.deleted"
 
-
 class EventEnvelope(BaseModel):
-    """Transport-agnostic event."""
 
     id: str = Field(default_factory=new_ulid)
     type: EventType
@@ -81,7 +64,6 @@ class EventEnvelope(BaseModel):
         payload: dict[str, Any] | None = None,
         actor_id: str | None = None,
     ) -> Self:
-        """Build an event, inheriting ids from the ambient request context."""
         return cls(
             type=type,
             producer=producer,

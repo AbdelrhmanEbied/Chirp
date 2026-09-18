@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-svc
+  namespace: chirp-prod
+  labels:
+    app: notification
+spec:
+  type: ClusterIP
+  selector:
+    app: notification
+  ports:
+    - port: 8007
+      targetPort: 8007
+      protocol: TCP

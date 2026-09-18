@@ -1,4 +1,3 @@
-"""Tests for the event envelope and bus."""
 
 from __future__ import annotations
 

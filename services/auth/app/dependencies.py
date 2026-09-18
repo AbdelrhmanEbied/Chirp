@@ -1,11 +1,3 @@
-"""Composition root and FastAPI dependencies.
-
-Everything with a lifetime longer than a request (engine, Redis client, HTTP
-clients, JWT codec) is built once in `ServiceContext.create` and torn down in
-`ServiceContext.close`. Handlers receive collaborators through `Depends`, so a
-test can build a context over an in-memory bus and a throwaway database
-without patching module globals.
-"""
 
 from __future__ import annotations
 
@@ -123,12 +115,6 @@ CurrentUser = Annotated[AuthenticatedUser, Depends(_current_user)]
 
 
 def client_ip(request: Request) -> str | None:
-    """Prefer the gateway-set forwarded address over the socket peer.
-
-    Only trusted because in this topology nothing but the gateway can reach
-    the service; a public-facing deployment must strip and re-set this header
-    at the edge.
-    """
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
         return forwarded.split(",")[0].strip()

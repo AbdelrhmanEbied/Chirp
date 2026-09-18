@@ -16,7 +16,6 @@ async def test_refresh_returns_a_new_pair(client: AsyncClient, registered) -> No
 async def test_reusing_a_rotated_token_revokes_every_session(
     client: AsyncClient, registered
 ) -> None:
-    """Token reuse is treated as theft, not as a retry."""
     first = await client.post(
         "/api/v1/auth/refresh", json={"refresh_token": registered["refresh_token"]}
     )
@@ -29,7 +28,6 @@ async def test_reusing_a_rotated_token_revokes_every_session(
     assert replay.status_code == 401
     assert replay.json()["error"]["code"] == "refresh_reuse"
 
-    # The chain is dead, including the token the attacker's replay rotated from.
     after = await client.post("/api/v1/auth/refresh", json={"refresh_token": new_token})
     assert after.status_code == 401
 

@@ -1,11 +1,3 @@
-"""FastAPI application factory.
-
-Every Chirp service calls `create_app`. That is what makes the services
-consistent without a framework of our own: identical middleware order,
-identical error envelope, identical health and metrics endpoints, identical
-OpenAPI conventions.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -35,27 +27,16 @@ log = logging.getLogger(__name__)
 
 Lifespan = Callable[[FastAPI], "AsyncIterator[None]"]
 
-
 @dataclass(slots=True)
 class HealthCheck:
-    """A readiness dependency.
-
-    `critical=True` means the service cannot serve correct responses without
-    it and should fail readiness (Kubernetes pulls it from the load balancer
-    but does not restart it). Non-critical dependencies -- typically the cache
-    -- are reported but do not fail the probe, because degraded is better than
-    removed.
-    """
 
     name: str
     probe: Callable[[], Awaitable[bool]]
     critical: bool = True
 
-
 @dataclass(slots=True)
 class AppState:
     readiness: list[HealthCheck] = field(default_factory=list)
-
 
 def create_app(
     *,
@@ -89,7 +70,6 @@ def create_app(
         docs_url="/docs",
         redoc_url=None,
         openapi_url="/openapi.json",
-        # Errors are documented once here rather than on every route.
         responses={
             400: {"description": "Malformed request"},
             401: {"description": "Missing or invalid access token"},
@@ -102,9 +82,6 @@ def create_app(
     app.state.chirp = AppState(readiness=list(readiness_checks))
     app.state.settings = settings
 
-    # Added innermost-first: the last `add_middleware` call is the outermost
-    # layer, so CORS wraps everything and request ids are bound before the
-    # access log and the route run.
     app.add_middleware(AccessLogMiddleware, service_name=settings.service_name)
     app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.request_max_bytes)
     app.add_middleware(RequestContextMiddleware)
@@ -121,7 +98,6 @@ def create_app(
     _install_exception_handlers(app, settings)
     _install_operational_routes(app, settings)
     return app
-
 
 def _install_exception_handlers(app: FastAPI, settings: ServiceSettings) -> None:
     @app.exception_handler(AppError)
@@ -182,8 +158,6 @@ def _install_exception_handlers(app: FastAPI, settings: ServiceSettings) -> None
 
     @app.exception_handler(Exception)
     async def _unhandled(request: Request, exc: Exception) -> JSONResponse:
-        # The real exception goes to the logs only. Returning it to the client
-        # leaks stack traces, query fragments and internal hostnames.
         log.exception(
             "unhandled exception",
             extra={"service": settings.service_name, "path": request.url.path},
@@ -199,26 +173,19 @@ def _install_exception_handlers(app: FastAPI, settings: ServiceSettings) -> None
             },
         )
 
-
 def _install_operational_routes(app: FastAPI, settings: ServiceSettings) -> None:
     @app.get("/health/live", tags=["operations"], include_in_schema=False)
     async def liveness() -> dict[str, str]:
-        """Is the process alive? Never touches dependencies.
-
-        A liveness probe that checks the database restarts every pod during a
-        database blip, which turns a recoverable incident into an outage.
-        """
         return {"status": "ok", "service": settings.service_name}
 
     @app.get("/health/ready", tags=["operations"], include_in_schema=False)
     async def readiness() -> JSONResponse:
-        """Can this instance serve traffic right now?"""
         results: dict[str, str] = {}
         ready = True
         for check in app.state.chirp.readiness:
             try:
                 healthy = await check.probe()
-            except Exception:  # noqa: BLE001 - a probe must never raise out
+            except Exception:# noqa: BLE001 - a probe must never raise out
                 log.warning("readiness probe raised", extra={"check": check.name})
                 healthy = False
             results[check.name] = "ok" if healthy else "failing"

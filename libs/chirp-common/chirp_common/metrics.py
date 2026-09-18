@@ -1,10 +1,3 @@
-"""Prometheus metrics.
-
-Exposed at `/metrics` on every service. The application never requires a
-Prometheus server to exist: if nobody scrapes the endpoint the counters simply
-accumulate in memory.
-"""
-
 from __future__ import annotations
 
 import time
@@ -80,7 +73,6 @@ dependency_requests_total = Counter(
     ("service", "dependency", "outcome"),
     registry=REGISTRY,
 )
-
 
 @contextmanager
 def observe_db(service: str, operation: str) -> Iterator[None]:

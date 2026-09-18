@@ -1,12 +1,3 @@
-"""Typed HTTP client for service-to-service calls.
-
-Synchronous calls between services are where a distributed system usually
-fails, so every call made through this client gets: a hard timeout, bounded
-retries with jittered backoff on retry-safe methods only, a circuit breaker so
-a dead dependency fails fast instead of consuming the caller's workers, and
-propagation of the correlation id so one user action is traceable end to end.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -26,9 +17,7 @@ log = logging.getLogger(__name__)
 RETRY_SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "DELETE"})
 RETRYABLE_STATUS = frozenset({502, 503, 504})
 
-
 class CircuitBreaker:
-    """Minimal breaker: open after N consecutive failures, half-open after T."""
 
     def __init__(self, *, failure_threshold: int = 5, reset_after_seconds: float = 10.0) -> None:
         self._threshold = failure_threshold
@@ -55,7 +44,6 @@ class CircuitBreaker:
         self._failures += 1
         if self._failures >= self._threshold:
             self._opened_at = time.monotonic()
-
 
 class ServiceClient:
     def __init__(
@@ -137,7 +125,7 @@ class ServiceClient:
 
             return self._handle(response)
 
-        raise DependencyError(  # pragma: no cover - loop always returns or raises
+        raise DependencyError(# pragma: no cover - loop always returns or raises
             f"{self._dependency} did not respond.",
         ) from last_error
 
@@ -177,9 +165,6 @@ class ServiceClient:
                 details={"dependency": self._dependency},
             )
 
-        # 4xx from a dependency is a real answer, not a failure: pass the
-        # upstream error through so the client sees "user not found" rather
-        # than "dependency unavailable".
         self._breaker.record_success()
         payload = self._safe_json(response)
         error = (payload or {}).get("error", {})
@@ -199,7 +184,5 @@ class ServiceClient:
         return data if isinstance(data, dict) else None
 
     async def _backoff(self, attempt: int) -> None:
-        # Exponential with full jitter: without jitter every caller retries in
-        # lockstep and hammers a recovering dependency.
         delay = min(0.1 * (2**attempt), 2.0)
         await asyncio.sleep(random.uniform(0, delay))

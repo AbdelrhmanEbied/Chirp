@@ -1,7 +1,3 @@
-"""Initial search schema: post_search, hashtag_usage, processed events.
-
-Revision ID: 0001
-"""
 
 from alembic import op
 import sqlalchemy as sa

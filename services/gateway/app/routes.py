@@ -1,15 +1,3 @@
-"""HTTP surface of the gateway.
-
-Two kinds of routes:
-
-1. **Composed screens** -- the gateway fetches data from multiple services,
-   merges it, and returns a shape the client cannot get from any single
-   service. These are the BFF's reason to exist.
-
-2. **Proxied routes** -- thin pass-through to a single downstream service.
-   The gateway still adds value: it verified the token once, sets identity
-   headers, and applies the coarse per-IP rate limit.
-"""
 
 from __future__ import annotations
 
@@ -45,9 +33,6 @@ def _bearer(request: Request) -> str | None:
     return token.strip()
 
 
-# ---------------------------------------------------------------------------
-# Composed screens
-# ---------------------------------------------------------------------------
 
 
 @router.get("/feed", summary="Home feed with hydrated authors")
@@ -58,7 +43,6 @@ async def home_feed(
     limit: int = Query(default=20, ge=1, le=100),
     before: str | None = Query(default=None),
 ) -> dict:
-    """Fetch the user's timeline, then hydrate author profiles in one batch."""
     await _enforce_rate_limit(context, request)
 
     bearer = _bearer(request)
@@ -114,7 +98,6 @@ async def user_profile(
     user: OptionalUser,
     limit: int = Query(default=20, ge=1, le=50),
 ) -> dict:
-    """Fetch a user's profile and their recent posts in parallel-like fashion."""
     await _enforce_rate_limit(context, request)
 
     bearer = _bearer(request)
@@ -138,9 +121,6 @@ async def user_profile(
     return {"profile": profile, "recent_posts": recent_posts or []}
 
 
-# ---------------------------------------------------------------------------
-# Proxied auth routes
-# ---------------------------------------------------------------------------
 
 
 @router.post("/auth/register", status_code=status.HTTP_201_CREATED, summary="Proxy: create account")
@@ -192,9 +172,6 @@ async def auth_me(request: Request, context: Context, user: CurrentUser) -> dict
     )
 
 
-# ---------------------------------------------------------------------------
-# Proxied post routes
-# ---------------------------------------------------------------------------
 
 
 @router.post("/posts", status_code=status.HTTP_201_CREATED, summary="Proxy: create post")
@@ -253,9 +230,6 @@ async def unlike_post(post_id: str, request: Request, context: Context, user: Cu
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-# ---------------------------------------------------------------------------
-# Proxied user routes
-# ---------------------------------------------------------------------------
 
 
 @router.get("/users/me", summary="Proxy: own profile")
@@ -292,9 +266,6 @@ async def search_users(
     )
 
 
-# ---------------------------------------------------------------------------
-# Proxied search routes
-# ---------------------------------------------------------------------------
 
 
 @router.get("/search", summary="Proxy: search posts and users")
@@ -314,9 +285,6 @@ async def search(
     )
 
 
-# ---------------------------------------------------------------------------
-# Proxied notification routes
-# ---------------------------------------------------------------------------
 
 
 @router.get("/notifications", summary="Proxy: list notifications")
@@ -358,9 +326,6 @@ async def mark_notifications_read(request: Request, context: Context, user: Curr
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-# ---------------------------------------------------------------------------
-# Proxied graph (follows) routes
-# ---------------------------------------------------------------------------
 
 
 @router.post(
@@ -437,9 +402,6 @@ async def list_following(
     )
 
 
-# ---------------------------------------------------------------------------
-# Proxied messaging routes
-# ---------------------------------------------------------------------------
 
 
 @router.get("/conversations", summary="Proxy: list conversations")

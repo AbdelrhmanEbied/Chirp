@@ -76,7 +76,6 @@ async def test_delete_post(client: AsyncClient, context, bus) -> None:
     published = bus.published_of(EventType.POST_DELETED)
     assert len(published) == 1
 
-    # Post should be gone
     get_resp = await client.get(f"/api/v1/posts/{post_id}")
     assert get_resp.status_code == 404
 

@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: messaging
+  namespace: chirp-prod
+  labels:
+    app: messaging
+    service: messaging
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: messaging
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: messaging
+    spec:
+      containers:
+        - name: messaging
+          image: chirp/messaging:latest
+          ports:
+            - containerPort: 8008
+          envFrom:
+            - configMapRef:
+                name: chirp-config
+            - secretRef:
+                name: chirp-secrets
+          env:
+            - name: SERVICE_NAME
+              value: "messaging-service"
+            - name: PORT
+              value: "8008"
+            - name: DB_APPLICATION_NAME
+              value: "messaging-service"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: chirp-secrets
+                  key: DATABASE_URL_MESSAGING
+            - name: GRAPH_SERVICE_URL
+              value: "http://graph-svc.chirp-prod.svc.cluster.local:8004"
+          resources:
+            requests:
+              cpu: 250m
+              memory: 128Mi
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8008
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8008
+            initialDelaySeconds: 5
+            periodSeconds: 5

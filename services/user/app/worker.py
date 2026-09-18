@@ -1,16 +1,3 @@
-"""User service event consumer.
-
-Runs as its own process (`services/user` image, different command). It keeps
-the denormalised counters on `user_profiles` in step with the follow and post
-events published by other services.
-
-Why counters are maintained here rather than queried live: a profile page is
-read far more often than a follow is created, and `SELECT COUNT(*) FROM
-follows WHERE followee_id = ?` on a popular account is an index scan over
-millions of rows on every view. The cost of that choice is eventual
-consistency -- the number can lag by the queue depth -- which is acceptable for
-a follower count and is documented in docs/scalability.md.
-"""
 
 from __future__ import annotations
 
@@ -31,7 +18,6 @@ CONSUMER_GROUP = "user-service"
 
 
 class CounterProjector:
-    """Applies counter deltas, exactly once per event."""
 
     def __init__(self, context: ServiceContext) -> None:
         self._context = context
@@ -66,8 +52,6 @@ class CounterProjector:
         self, event: EventEnvelope, deltas: list[tuple[str, str, int]]
     ) -> None:
         async with self._context.database.session() as session:
-            # The claim and the deltas share one transaction: either both
-            # commit or neither does, so a redelivery cannot double-count.
             first_time = await claim_event(
                 session,
                 event_id=event.id,

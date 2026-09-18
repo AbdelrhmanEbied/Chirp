@@ -1,4 +1,3 @@
-"""Event-processing tests for the counter projector."""
 
 from __future__ import annotations
 
@@ -42,7 +41,6 @@ async def test_follow_event_increments_both_sides(
 
 
 async def test_duplicate_delivery_is_ignored(client: AsyncClient, ada, projector) -> None:
-    """At-least-once delivery means the same event can arrive twice."""
     event = follow_event(BOB_ID, ADA_ID)
     await projector.on_followed(event)
     await projector.on_followed(event)

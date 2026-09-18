@@ -1,0 +1,34 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: timeline-migrate
+  namespace: chirp-prod
+  labels:
+    app: timeline
+spec:
+  template:
+    metadata:
+      labels:
+        app: timeline
+    spec:
+      containers:
+        - name: timeline-migrate
+          image: chirp/timeline:latest
+          command: ["alembic", "upgrade", "head"]
+          envFrom:
+            - configMapRef:
+                name: chirp-config
+            - secretRef:
+                name: chirp-secrets
+          env:
+            - name: SERVICE_NAME
+              value: "timeline-service"
+            - name: PORT
+              value: "8005"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: chirp-secrets
+                  key: DATABASE_URL_TIMELINE
+      restartPolicy: Never
+  backoffLimit: 3

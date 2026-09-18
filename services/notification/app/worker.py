@@ -1,8 +1,3 @@
-"""Notification service event consumer.
-
-Runs as a separate process. Consumes events that should generate
-user notifications.
-"""
 
 from __future__ import annotations
 

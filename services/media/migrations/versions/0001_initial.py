@@ -1,7 +1,3 @@
-"""Initial media schema: media, processed events.
-
-Revision ID: 0001
-"""
 
 from alembic import op
 import sqlalchemy as sa

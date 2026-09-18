@@ -7,8 +7,6 @@ from pydantic import BaseModel, Field, field_validator
 
 USERNAME_PATTERN = re.compile(r"^[a-zA-Z0-9_]{3,20}$")
 
-# Handles the platform reserves for itself, so that nobody can register
-# /admin or /settings and shadow a real route or impersonate the service.
 RESERVED_USERNAMES = frozenset(
     {
         "admin", "administrator", "api", "chirp", "explore", "help", "home",
@@ -28,7 +26,6 @@ def normalise_username(value: str) -> str:
 
 
 class CreateProfileRequest(BaseModel):
-    """Internal: called by the auth service during registration."""
 
     user_id: str = Field(min_length=26, max_length=26)
     username: str
@@ -86,7 +83,6 @@ class ProfileResponse(BaseModel):
 
 
 class ProfileSummary(BaseModel):
-    """The shape other services embed when they hydrate an author."""
 
     id: str
     username: str

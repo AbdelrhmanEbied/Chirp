@@ -1,4 +1,3 @@
-"""Test fixtures for the moderation service."""
 
 from __future__ import annotations
 

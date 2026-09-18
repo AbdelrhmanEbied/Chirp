@@ -1,4 +1,3 @@
-"""Tests for the chirp_common shared library."""
 
 from __future__ import annotations
 

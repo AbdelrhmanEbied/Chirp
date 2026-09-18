@@ -1,8 +1,3 @@
-"""Tables owned by the post service.
-
-Posts are soft-deleted because replies and timeline entries reference them.
-Likes, reposts and bookmarks are hard-deleted: nothing else references them.
-"""
 
 from __future__ import annotations
 

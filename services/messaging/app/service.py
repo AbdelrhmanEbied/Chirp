@@ -1,4 +1,3 @@
-"""Messaging domain logic."""
 
 from __future__ import annotations
 
@@ -39,7 +38,6 @@ class MessagingService:
         self._graph = graph_client
 
     async def _check_blocked(self, user_id: str, target_id: str) -> None:
-        """Raise ForbiddenError if either user has blocked the other."""
         try:
             data = await self._graph.get(
                 f"/internal/v1/graph/blocks",

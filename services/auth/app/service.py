@@ -1,4 +1,3 @@
-"""Auth domain logic."""
 
 from __future__ import annotations
 
@@ -59,32 +58,12 @@ class AuthService:
         self._users = user_client
         self._bus = bus
 
-    # --------------------------------------------------------------- register
 
     async def register(
         self, payload: RegisterRequest, *, user_agent: str | None, ip: str | None
     ) -> TokenPair:
-        """Create credentials here, then the public profile in the user service.
-
-        Two services, no distributed transaction. The sequence is chosen so
-        that every failure leaves a state we can reason about:
-
-        1. Write the account with `activated_at = NULL`. It cannot log in yet.
-        2. Ask the user service to create the profile. That call is idempotent
-           on `user_id`, so a timeout can be retried safely.
-        3. Mark the account activated and publish `user.registered`.
-
-        If step 2 rejects the username, step 1 is rolled back in the same local
-        transaction. If step 2 succeeds but the process dies before step 3, the
-        account is left inactive and the user retries registration; the
-        idempotent profile create returns the same profile. The residue is an
-        unactivated row, which a reaper can clean up. This is documented in
-        docs/failure-modes.md.
-        """
         existing = await self._accounts.get_by_email(payload.email)
         if existing is not None:
-            # Deliberately the same generic message as a username clash so the
-            # endpoint is not an email-enumeration oracle.
             raise ConflictError(
                 "That email or username is already in use.", code="account_exists"
             )
@@ -120,15 +99,12 @@ class AuthService:
         issued = await self._issue_tokens(account, user_agent=user_agent, ip=ip)
         return issued.pair
 
-    # ------------------------------------------------------------------ login
 
     async def login(
         self, payload: LoginRequest, *, user_agent: str | None, ip: str | None
     ) -> TokenPair:
         account = await self._accounts.get_by_email(payload.email)
 
-        # Verify against a dummy hash when the account is missing so that the
-        # response time does not reveal whether the email exists.
         password_hash = account.password_hash if account else _DUMMY_HASH
         matched = verify_password(payload.password, password_hash)
 
@@ -146,24 +122,17 @@ class AuthService:
         issued = await self._issue_tokens(account, user_agent=user_agent, ip=ip)
         return issued.pair
 
-    # ---------------------------------------------------------------- refresh
 
     async def refresh(
         self, payload: RefreshRequest, *, user_agent: str | None, ip: str | None
     ) -> TokenPair:
-        """Rotate the refresh token, and treat reuse as a compromise."""
         token_hash = hash_token(payload.refresh_token)
         session = await self._sessions.get_by_token_hash(token_hash)
         if session is None:
             raise UnauthorizedError("Refresh token is not recognised.", code="invalid_refresh")
 
         if session.rotated_to_id is not None:
-            # This token was already exchanged. Either a replay attack or a
-            # stolen token; revoke every session for the account.
             revoked = await self._sessions.revoke_all(session.account_id)
-            # Commit before raising. The request-scoped session rolls back on
-            # exception, and rolling back here would undo the very revocation
-            # that makes reuse detection worth having.
             await self._db.commit()
             log.warning(
                 "refresh token reuse detected, revoked all sessions",
@@ -185,20 +154,16 @@ class AuthService:
         await self._sessions.revoke(session)
         return issued.pair
 
-    # ----------------------------------------------------------------- logout
 
     async def logout(self, refresh_token: str) -> None:
         session = await self._sessions.get_by_token_hash(hash_token(refresh_token))
         if session is None:
-            # Logging out an unknown token is not an error: the desired state
-            # (that token cannot be used) already holds.
             return
         await self._sessions.revoke(session)
 
     async def logout_everywhere(self, account_id: str, *, keep_session_id: str | None) -> int:
         return await self._sessions.revoke_all(account_id, except_id=keep_session_id)
 
-    # --------------------------------------------------------------- password
 
     async def change_password(self, account_id: str, payload: ChangePasswordRequest) -> int:
         account = await self._accounts.get(account_id)
@@ -207,7 +172,6 @@ class AuthService:
         if not verify_password(payload.current_password, account.password_hash):
             raise UnauthorizedError("Current password is incorrect.", code="invalid_credentials")
         account.password_hash = hash_password(payload.new_password)
-        # Every other device must re-authenticate after a password change.
         return await self._sessions.revoke_all(account_id)
 
     async def get_account(self, account_id: str) -> Account:
@@ -219,7 +183,6 @@ class AuthService:
     async def list_sessions(self, account_id: str) -> list[Session]:
         return await self._sessions.list_active(account_id)
 
-    # ---------------------------------------------------------------- helpers
 
     async def _issue_tokens(
         self, account: Account, *, user_agent: str | None, ip: str | None
@@ -254,12 +217,9 @@ class AuthService:
 
 @dataclass(frozen=True, slots=True)
 class _IssuedTokens:
-    """Internal result: the client-facing pair plus the new session id,
-    which `refresh` needs in order to record the rotation link."""
 
     pair: TokenPair
     session_id: str
 
 
-# Precomputed so the "account does not exist" path still pays hashing cost.
 _DUMMY_HASH = hash_password("chirp-timing-equaliser-placeholder")

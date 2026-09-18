@@ -1,8 +1,3 @@
-"""Tables owned by the graph service: follow, block and mute edges.
-
-Cross-service references are stored as plain id strings with no foreign key,
-because the referenced row lives in a different database.
-"""
 
 from __future__ import annotations
 

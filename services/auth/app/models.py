@@ -1,9 +1,3 @@
-"""Tables owned by the auth service.
-
-Nothing about a user's public identity lives here: no username, no bio, no
-avatar. Auth owns *credentials and sessions only*. The public profile is owned
-by the user service and joined by id at the application layer.
-"""
 
 from __future__ import annotations
 
@@ -19,7 +13,6 @@ from chirp_common.timeutil import ensure_utc
 
 
 class Account(ULIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
-    """Login credentials for one user. `id` is the user id across all services."""
 
     __tablename__ = "accounts"
 
@@ -27,9 +20,6 @@ class Account(ULIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     is_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
-    # Set once the user service has confirmed the profile exists. Until then
-    # the account cannot log in: see `AuthService.register` for why
-    # registration is two steps across two services.
     activated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
@@ -43,11 +33,6 @@ class Account(ULIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
 
 
 class Session(ULIDPrimaryKeyMixin, TimestampMixin, Base):
-    """One refresh token / logged-in device.
-
-    Only the SHA-256 of the refresh token is stored. A database dump therefore
-    does not hand an attacker usable sessions.
-    """
 
     __tablename__ = "sessions"
 
@@ -58,8 +43,6 @@ class Session(ULIDPrimaryKeyMixin, TimestampMixin, Base):
     user_agent: Mapped[str | None] = mapped_column(String(255), nullable=True)
     ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
 
-    # Refresh token rotation: the id of the session that replaced this one.
-    # Presenting a rotated token is evidence of theft and revokes the chain.
     rotated_to_id: Mapped[str | None] = mapped_column(String(ULID_LENGTH), nullable=True)
 
     __table_args__ = (

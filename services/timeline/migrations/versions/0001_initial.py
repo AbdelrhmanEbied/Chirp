@@ -1,7 +1,3 @@
-"""Initial timeline schema: processed events only.
-
-Revision ID: 0001
-"""
 
 from alembic import op
 import sqlalchemy as sa

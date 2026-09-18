@@ -1,15 +1,3 @@
-"""Access token encoding and verification.
-
-Only the auth service mints tokens. Every other service verifies them locally
-with the same shared secret, which keeps the hot path free of a network call
-to auth on every request.
-
-Tradeoff, recorded in docs/decisions.md: a shared HS256 secret means any
-service holding it could mint tokens. The production-grade version is RS256
-with auth publishing a JWKS endpoint and services caching public keys. The
-seam for that change is this file only.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -24,7 +12,6 @@ from chirp_common.ids import new_ulid
 
 TOKEN_TYPE_ACCESS = "access"
 
-
 @dataclass(frozen=True, slots=True)
 class AccessTokenClaims:
     user_id: str
@@ -37,7 +24,6 @@ class AccessTokenClaims:
     @property
     def is_admin(self) -> bool:
         return "admin" in self.scopes
-
 
 class JWTCodec:
     def __init__(

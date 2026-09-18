@@ -48,7 +48,6 @@ async def test_home_feed_with_limit(client: AsyncClient, context) -> None:
 async def test_home_feed_returns_precomputed_entries(
     client: AsyncClient, context
 ) -> None:
-    """Feed entries stored in the DB should appear in the home feed."""
     async with context.database.session() as session:
         session.add(
             FeedEntry(
@@ -87,7 +86,6 @@ async def test_home_feed_returns_precomputed_entries(
 async def test_home_feed_does_not_show_other_users_entries(
     client: AsyncClient, context
 ) -> None:
-    """Entries for other users should not appear in this user's feed."""
     async with context.database.session() as session:
         session.add(
             FeedEntry(

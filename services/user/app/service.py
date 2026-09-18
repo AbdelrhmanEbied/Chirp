@@ -1,4 +1,3 @@
-"""User service domain logic."""
 
 from __future__ import annotations
 
@@ -44,15 +43,8 @@ class UserService:
         self._bus = bus
         self._settings = settings
 
-    # ---------------------------------------------------------------- create
 
     async def create_profile(self, payload: CreateProfileRequest) -> ProfileResponse:
-        """Idempotent on `user_id`.
-
-        The auth service may retry this call after a timeout, so a second call
-        with the same id must return the existing profile rather than a 409.
-        A different id claiming a taken username is still a conflict.
-        """
         existing = await self._profiles.get(payload.user_id)
         if existing is not None:
             return _to_response(existing)
@@ -68,8 +60,6 @@ class UserService:
         try:
             await self._profiles.add(profile)
         except IntegrityError as exc:
-            # Two concurrent registrations raced for the same username; the
-            # unique index is the arbiter, not the check above.
             raise ConflictError("That username is taken.", code="username_taken") from exc
 
         log.info(
@@ -78,7 +68,6 @@ class UserService:
         )
         return _to_response(profile)
 
-    # ------------------------------------------------------------------ read
 
     async def get_by_username(self, username: str) -> ProfileResponse:
         cached = await self._cache.get(f"username:{username.lower()}")
@@ -128,7 +117,6 @@ class UserService:
             for p in profiles
         ]
 
-    # ---------------------------------------------------------------- update
 
     async def update_profile(
         self, user_id: str, payload: UpdateProfileRequest
@@ -202,7 +190,6 @@ class UserService:
             )
         )
 
-    # ------------------------------------------------------- event consumers
 
     async def apply_counter_delta(self, user_id: str, field: str, delta: int) -> None:
         await self._profiles.adjust_counter(user_id, field, delta)
@@ -210,7 +197,6 @@ class UserService:
         if profile is not None:
             await self._invalidate(profile.username)
 
-    # --------------------------------------------------------------- helpers
 
     async def _require_own(self, user_id: str) -> UserProfile:
         profile = await self._profiles.get(user_id)
@@ -219,8 +205,6 @@ class UserService:
         return profile
 
     async def _invalidate(self, *usernames: str) -> None:
-        # Invalidate rather than overwrite: a failed delete costs one stale TTL
-        # window, a failed write could leave a wrong value cached indefinitely.
         await self._cache.delete(*[f"username:{u.lower()}" for u in usernames])
 
     async def _publish_profile_updated(

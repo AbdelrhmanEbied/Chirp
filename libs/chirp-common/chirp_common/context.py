@@ -1,11 +1,3 @@
-"""Per-request ambient context.
-
-`request_id` identifies a single inbound HTTP request or a single consumed
-event. `correlation_id` identifies a whole user-initiated operation as it
-crosses service and event boundaries: it is generated at the edge (gateway)
-and propagated through HTTP headers and event envelopes.
-"""
-
 from __future__ import annotations
 
 import uuid
@@ -21,25 +13,19 @@ REQUEST_ID_HEADER = "x-request-id"
 CORRELATION_ID_HEADER = "x-correlation-id"
 ACTOR_ID_HEADER = "x-actor-id"
 
-
 def new_id() -> str:
     return uuid.uuid4().hex
-
 
 def get_request_id() -> str | None:
     return _request_id.get()
 
-
 def get_correlation_id() -> str | None:
     return _correlation_id.get()
-
 
 def get_actor_id() -> str | None:
     return _actor_id.get()
 
-
 def log_fields() -> dict[str, Any]:
-    """Context fields that every log line should carry, when present."""
     fields: dict[str, Any] = {}
     if rid := _request_id.get():
         fields["request_id"] = rid
@@ -49,20 +35,13 @@ def log_fields() -> dict[str, Any]:
         fields["actor_id"] = aid
     return fields
 
-
 @dataclass(slots=True)
 class _Tokens:
     request: Token[str | None]
     correlation: Token[str | None]
     actor: Token[str | None]
 
-
 class bind_context:
-    """Context manager that binds ids for the duration of a block.
-
-    Used by HTTP middleware and by the event worker so that consumed events
-    log with the same correlation id as the request that produced them.
-    """
 
     def __init__(
         self,
@@ -99,7 +78,5 @@ class bind_context:
             _actor_id.reset(self._tokens.actor)
             self._tokens = None
 
-
 def set_actor_id(actor_id: str | None) -> None:
-    """Set the authenticated actor once auth middleware has resolved it."""
     _actor_id.set(actor_id)

@@ -1,4 +1,3 @@
-"""Test fixtures for the post service."""
 
 from __future__ import annotations
 

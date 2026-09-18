@@ -1,14 +1,3 @@
-"""Event consumer runtime.
-
-A worker is a separate process from the HTTP API even when it belongs to the
-same service. A slow fan-out or a search reindex must not consume the web
-worker pool that is serving user requests, and the two scale on different
-signals: API on request rate, worker on queue depth.
-
-Delivery semantics are at-least-once. Handlers are expected to be idempotent,
-either naturally or via `chirp_common.idempotency.claim_event`.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -38,13 +27,10 @@ from chirp_common.metrics import (
 
 log = logging.getLogger(__name__)
 
-
 def build_event_bus(settings: EventBusSettings, *, service_name: str) -> EventBus:
-    """Select the bus implementation. The only place a backend is named."""
     if settings.event_bus_backend == "memory":
         return InMemoryEventBus(service_name)
     return RedisStreamsEventBus(settings, service_name=service_name)
-
 
 class EventWorker:
     def __init__(
@@ -106,8 +92,6 @@ class EventWorker:
                 )
                 backoff = self._settings.event_retry_base_delay_seconds
             except DependencyError:
-                # Broker is down. Back off instead of spinning, and cap the
-                # delay so the worker recovers promptly when it returns.
                 log.warning("event bus unavailable", extra={"retry_in": backoff})
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, self._settings.event_retry_max_delay_seconds)
@@ -147,7 +131,7 @@ class EventWorker:
             try:
                 for handler in handlers:
                     await handler(event)
-            except Exception as exc:  # noqa: BLE001 - one bad event must not kill the loop
+            except Exception as exc:# noqa: BLE001 - one bad event must not kill the loop
                 await self._handle_failure(stream, entry_id, event, attempt, exc)
                 return
             finally:
@@ -167,7 +151,6 @@ class EventWorker:
             )
 
     async def _cleanup_processed_events(self) -> None:
-        """Delete ProcessedEvent records older than 7 days."""
         if self._database is None:
             return
         cutoff = datetime.now(timezone.utc) - timedelta(days=7)
@@ -183,7 +166,7 @@ class EventWorker:
                         "cleaned up old processed events",
                         extra={"deleted": result.rowcount, "consumer": self._group},
                     )
-        except Exception:  # noqa: BLE001
+        except Exception:# noqa: BLE001
             log.warning("failed to clean up processed events", exc_info=True)
 
     async def _handle_failure(
@@ -195,8 +178,6 @@ class EventWorker:
         exc: Exception,
     ) -> None:
         if attempt >= self._settings.event_max_delivery_attempts:
-            # Give up: park it and acknowledge, otherwise this entry blocks its
-            # pending list forever and every claim cycle retries it.
             await self._bus.dead_letter(event, reason=f"{type(exc).__name__}: {exc}")
             await self._bus.ack(stream, self._group, entry_id)
             events_consumed_total.labels(
@@ -209,9 +190,6 @@ class EventWorker:
             )
             return
 
-        # Leave the entry unacknowledged. It stays in the consumer group's
-        # pending list and is reclaimed by `xautoclaim` after the idle window,
-        # which spreads retries out rather than hot-looping on a bad event.
         events_consumed_total.labels(self._service, event.type.value, "retry").inc()
         log.warning(
             "event handler failed, will retry",

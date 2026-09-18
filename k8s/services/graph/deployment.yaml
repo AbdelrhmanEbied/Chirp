@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: graph
+  namespace: chirp-prod
+  labels:
+    app: graph
+    service: graph
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: graph
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: graph
+    spec:
+      containers:
+        - name: graph
+          image: chirp/graph:latest
+          ports:
+            - containerPort: 8004
+          envFrom:
+            - configMapRef:
+                name: chirp-config
+            - secretRef:
+                name: chirp-secrets
+          env:
+            - name: SERVICE_NAME
+              value: "graph-service"
+            - name: PORT
+              value: "8004"
+            - name: DB_APPLICATION_NAME
+              value: "graph-service"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: chirp-secrets
+                  key: DATABASE_URL_GRAPH
+          resources:
+            requests:
+              cpu: 250m
+              memory: 128Mi
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8004
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8004
+            initialDelaySeconds: 5
+            periodSeconds: 5

@@ -1,4 +1,3 @@
-"""Pluggable storage backend for media files."""
 
 from __future__ import annotations
 

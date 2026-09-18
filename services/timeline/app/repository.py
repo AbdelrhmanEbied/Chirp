@@ -1,8 +1,3 @@
-"""Timeline repository: fan-out-on-write with pre-computed feeds.
-
-Home feed reads from the local feed_entries table (O(1) query).
-User timeline still fetches from the post service on-read.
-"""
 
 from __future__ import annotations
 
@@ -37,7 +32,6 @@ class TimelineRepository:
     async def get_home_feed(
         self, user_id: str, limit: int, cursor: str | None
     ) -> FeedResponse:
-        """Read pre-computed home feed from feed_entries table."""
         effective_limit = min(limit, self._max_feed_size)
 
         stmt = (
@@ -70,7 +64,6 @@ class TimelineRepository:
             for row in rows
         ]
 
-        # Hydrate author info if we have entries
         if entries:
             author_ids = list({e.author_id for e in entries})
             author_map = await self._hydrate_authors(author_ids)
@@ -89,7 +82,6 @@ class TimelineRepository:
     async def get_user_timeline(
         self, user_id: str, limit: int, cursor: str | None
     ) -> FeedResponse:
-        """Posts by a specific user (still fan-out on read since it's per-user)."""
         effective_limit = min(limit, self._max_feed_size)
 
         params: dict[str, Any] = {"limit": effective_limit + 1}

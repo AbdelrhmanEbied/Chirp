@@ -1,7 +1,3 @@
-"""Initial graph schema: follows, blocks, mutes, processed events.
-
-Revision ID: 0001
-"""
 
 from alembic import op
 import sqlalchemy as sa

@@ -22,8 +22,6 @@ class ProfileRepository:
         )
 
     async def get_many(self, user_ids: list[str]) -> list[UserProfile]:
-        """Batch hydration. Exists so callers never loop over ids issuing one
-        query each -- the N+1 that would otherwise appear on every timeline."""
         if not user_ids:
             return []
         rows = await self._session.scalars(
@@ -53,12 +51,6 @@ class ProfileRepository:
         self._session.add(UsernameHistory(user_id=user_id, username=username))
 
     async def search(self, query: str, limit: int) -> list[UserProfile]:
-        """Prefix match on username and display name.
-
-        Deliberately simple: the search service owns real search. This exists
-        so the profile lookup used by the mention autocomplete does not have
-        to cross a service boundary for a three-character prefix.
-        """
         pattern = f"{query.lower()}%"
         rows = await self._session.scalars(
             select(UserProfile)
@@ -73,18 +65,10 @@ class ProfileRepository:
         return list(rows)
 
     async def adjust_counter(self, user_id: str, field: str, delta: int) -> None:
-        """Atomic counter update.
-
-        `UPDATE ... SET x = x + :delta` rather than read-modify-write, because
-        two workers processing follow events for the same user concurrently
-        would otherwise lose one of the increments.
-        """
         column = getattr(UserProfile, field)
         updated = column + delta
         await self._session.execute(
             update(UserProfile)
             .where(UserProfile.id == user_id)
-            # Clamped at zero with CASE rather than GREATEST so the statement
-            # is portable across PostgreSQL and the SQLite used by unit tests.
             .values({field: case((updated < 0, 0), else_=updated)})
         )

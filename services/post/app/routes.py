@@ -1,4 +1,3 @@
-"""HTTP surface of the post service."""
 
 from __future__ import annotations
 

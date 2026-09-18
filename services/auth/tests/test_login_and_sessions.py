@@ -30,7 +30,6 @@ async def test_login_fails_with_wrong_password(client: AsyncClient, registered) 
 
 
 async def test_login_for_unknown_email_gives_the_same_error(client: AsyncClient) -> None:
-    """Unknown account and wrong password must be indistinguishable."""
     response = await client.post(
         "/api/v1/auth/login",
         json={"email": "nobody@example.com", "password": "definitely-not-it-42"},
@@ -56,7 +55,6 @@ async def test_me_returns_the_account(client: AsyncClient, registered) -> None:
 async def test_session_cap_revokes_the_oldest_sessions(
     client: AsyncClient, registered
 ) -> None:
-    """max_active_sessions_per_user is 3 in the test settings."""
     for _ in range(4):
         response = await client.post(
             "/api/v1/auth/login",
@@ -89,7 +87,6 @@ async def test_change_password_revokes_other_sessions(
     assert changed.status_code == 200
     assert changed.json()["revoked_sessions"] >= 2
 
-    # The old refresh token no longer works.
     refreshed = await client.post(
         "/api/v1/auth/refresh", json={"refresh_token": second.json()["refresh_token"]}
     )

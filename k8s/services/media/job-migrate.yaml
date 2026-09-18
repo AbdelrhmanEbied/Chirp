@@ -1,0 +1,34 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: media-migrate
+  namespace: chirp-prod
+  labels:
+    app: media
+spec:
+  template:
+    metadata:
+      labels:
+        app: media
+    spec:
+      containers:
+        - name: media-migrate
+          image: chirp/media:latest
+          command: ["alembic", "upgrade", "head"]
+          envFrom:
+            - configMapRef:
+                name: chirp-config
+            - secretRef:
+                name: chirp-secrets
+          env:
+            - name: SERVICE_NAME
+              value: "media-service"
+            - name: PORT
+              value: "8009"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: chirp-secrets
+                  key: DATABASE_URL_MEDIA
+      restartPolicy: Never
+  backoffLimit: 3

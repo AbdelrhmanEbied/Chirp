@@ -1,23 +1,8 @@
-"""Application error hierarchy.
-
-Every service raises `AppError` subclasses. The HTTP layer renders them into
-one envelope shape so that clients (and the gateway) never have to guess:
-
-    {"error": {"code": "not_found", "message": "...", "details": {...},
-               "request_id": "..."}}
-
-Unhandled exceptions become a 500 `internal_error` with the message replaced
-by a generic string. Internal detail leaks are a security problem, so the real
-exception only ever goes to the logs.
-"""
-
 from __future__ import annotations
 
 from typing import Any
 
-
 class AppError(Exception):
-    """Base class for expected, client-visible failures."""
 
     status_code: int = 500
     code: str = "internal_error"
@@ -45,42 +30,35 @@ class AppError(Exception):
             error["request_id"] = request_id
         return {"error": error}
 
-
 class BadRequestError(AppError):
     status_code = 400
     code = "bad_request"
     message = "The request was malformed."
-
 
 class ValidationError(AppError):
     status_code = 422
     code = "validation_error"
     message = "The request failed validation."
 
-
 class UnauthorizedError(AppError):
     status_code = 401
     code = "unauthorized"
     message = "Authentication is required."
-
 
 class ForbiddenError(AppError):
     status_code = 403
     code = "forbidden"
     message = "You do not have access to this resource."
 
-
 class NotFoundError(AppError):
     status_code = 404
     code = "not_found"
     message = "The requested resource does not exist."
 
-
 class ConflictError(AppError):
     status_code = 409
     code = "conflict"
     message = "The request conflicts with the current state."
-
 
 class RateLimitedError(AppError):
     status_code = 429
@@ -91,18 +69,11 @@ class RateLimitedError(AppError):
         super().__init__(**kwargs)
         self.retry_after_seconds = retry_after_seconds
 
-
 class DependencyError(AppError):
-    """A downstream service or datastore failed or timed out.
-
-    Distinct from `internal_error` so that dashboards can separate "we are
-    broken" from "something we depend on is broken".
-    """
 
     status_code = 502
     code = "dependency_unavailable"
     message = "A downstream dependency is unavailable."
-
 
 class ServiceUnavailableError(AppError):
     status_code = 503

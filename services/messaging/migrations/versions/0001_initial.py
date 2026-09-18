@@ -1,7 +1,3 @@
-"""Initial messaging schema: conversations, participants, messages, processed events.
-
-Revision ID: 0001
-"""
 
 from alembic import op
 import sqlalchemy as sa

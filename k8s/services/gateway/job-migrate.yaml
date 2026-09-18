@@ -1,0 +1,29 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: gateway-migrate
+  namespace: chirp-prod
+  labels:
+    app: gateway
+spec:
+  template:
+    metadata:
+      labels:
+        app: gateway
+    spec:
+      containers:
+        - name: gateway-migrate
+          image: chirp/gateway:latest
+          command: ["alembic", "upgrade", "head"]
+          envFrom:
+            - configMapRef:
+                name: chirp-config
+            - secretRef:
+                name: chirp-secrets
+          env:
+            - name: SERVICE_NAME
+              value: "gateway-service"
+            - name: PORT
+              value: "8000"
+      restartPolicy: Never
+  backoffLimit: 3

@@ -1,9 +1,3 @@
-"""Timeline service event consumer.
-
-Runs as a separate process. Consumes events to build pre-computed
-home feeds (fan-out-on-write). When a post is created, it fetches the
-author's followers and inserts a feed entry for each active follower.
-"""
 
 from __future__ import annotations
 
@@ -28,14 +22,10 @@ log = logging.getLogger(__name__)
 
 CONSUMER_GROUP = "timeline-service"
 
-# Celebrity threshold: posts from authors with more followers than this
-# skip fan-out to avoid write amplification. These are served on-read.
 CELEBRITY_FOLLOWER_THRESHOLD = 10_000
 
-# Only fan-out to followers active in the last 7 days
 ACTIVE_FOLLOWER_DAYS = 7
 
-# Maximum feed size per user (older entries are pruned)
 MAX_FEED_ENTRIES_PER_USER = 800
 
 
@@ -67,7 +57,6 @@ class TimelineProjector:
             else:
                 created_at = event.occurred_at
 
-            # Fetch author's followers from graph service
             follower_ids = await self._fetch_followers(author_id)
 
             if not follower_ids:
@@ -75,7 +64,6 @@ class TimelineProjector:
                 log.info("no followers for fan-out", extra={"author_id": author_id})
                 return
 
-            # Celebrity check: skip fan-out if too many followers
             if len(follower_ids) >= CELEBRITY_FOLLOWER_THRESHOLD:
                 log.info(
                     "celebrity post, skipping fan-out",
@@ -84,12 +72,10 @@ class TimelineProjector:
                 await session.commit()
                 return
 
-            # Filter to active followers only
             active_followers = await self._filter_active_followers(
                 session, follower_ids
             )
 
-            # Insert feed entries for each active follower
             entries = [
                 FeedEntry(
                     user_id=fid,
@@ -143,7 +129,6 @@ class TimelineProjector:
             follower_id = event.actor_id or ""
             followee_id = event.subject_id
 
-            # Backfill: fetch recent posts from the newly-followed user
             posts = await self._fetch_user_posts(followee_id, limit=50)
 
             if posts:
@@ -183,7 +168,6 @@ class TimelineProjector:
             follower_id = event.actor_id or ""
             followee_id = event.subject_id
 
-            # Remove unfollowed user's posts from follower's feed
             await session.execute(
                 delete(FeedEntry).where(
                     FeedEntry.user_id == follower_id,
@@ -197,7 +181,6 @@ class TimelineProjector:
             )
 
     async def _fetch_followers(self, user_id: str) -> list[str]:
-        """Fetch all follower IDs from the graph service."""
         try:
             followers = await self._context.graph_client.get(
                 f"/internal/v1/graph/{user_id}/followers",
@@ -211,11 +194,6 @@ class TimelineProjector:
     async def _filter_active_followers(
         self, session: AsyncSession, follower_ids: list[str]
     ) -> list[str]:
-        """Filter to followers active in the last ACTIVE_FOLLOWER_DAYS.
-
-        Uses feed_entries.inserted_at as a proxy for last activity.
-        Users with no feed entries are considered inactive.
-        """
         cutoff = datetime.now(UTC) - timedelta(days=ACTIVE_FOLLOWER_DAYS)
 
         result = await session.execute(
@@ -228,8 +206,6 @@ class TimelineProjector:
         )
         active = set(result.scalars().all())
 
-        # Also include followers who have some entries (any recency)
-        # This ensures new followers who just got backfilled are included
         result2 = await session.execute(
             select(FeedEntry.user_id)
             .where(FeedEntry.user_id.in_(follower_ids))
@@ -242,7 +218,6 @@ class TimelineProjector:
     async def _fetch_user_posts(
         self, user_id: str, limit: int = 50
     ) -> list[dict]:
-        """Fetch recent posts from a user via the post service."""
         try:
             return await self._context.post_client.get(
                 f"/internal/v1/posts/by/{user_id}",

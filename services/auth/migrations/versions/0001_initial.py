@@ -1,7 +1,3 @@
-"""Initial auth schema: accounts, sessions, processed events.
-
-Revision ID: 0001
-"""
 
 from alembic import op
 import sqlalchemy as sa
@@ -41,9 +37,6 @@ def upgrade() -> None:
         sa.Column("rotated_to_id", sa.String(26), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        # No foreign key to accounts on purpose would be wrong here: accounts
-        # and sessions live in the SAME database owned by the SAME service, so
-        # the constraint is both possible and correct.
         sa.ForeignKeyConstraint(["account_id"], ["accounts.id"], ondelete="CASCADE"),
     )
     op.create_index("ix_sessions_token_hash", "sessions", ["token_hash"], unique=True)

@@ -19,7 +19,6 @@ async def test_register_returns_tokens_and_creates_profile(
     assert body["access_token"] and body["refresh_token"]
     assert body["user_id"]
 
-    # The profile was created in the user service with the same id.
     assert len(user_client.created) == 1
     assert user_client.created[0]["user_id"] == body["user_id"]
     assert user_client.created[0]["username"] == "ada"
@@ -38,13 +37,11 @@ async def test_duplicate_email_is_rejected(client: AsyncClient, registered) -> N
 async def test_username_conflict_rolls_back_the_account(
     client: AsyncClient, user_client, bus
 ) -> None:
-    """If the user service rejects the username, no credentials survive."""
     user_client.failure = ConflictError("Username taken.", code="username_taken")
 
     response = await client.post("/api/v1/auth/register", json=REGISTRATION)
     assert response.status_code == 409
 
-    # The rolled-back account must not block a later, valid registration.
     user_client.failure = None
     retry = await client.post("/api/v1/auth/register", json=REGISTRATION)
     assert retry.status_code == 201

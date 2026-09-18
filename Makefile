@@ -1,4 +1,3 @@
-# Chirp -- developer entry points.
 .DEFAULT_GOAL := help
 SERVICES := auth user post graph timeline search notification messaging media moderation
 COMPOSE := docker compose

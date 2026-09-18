@@ -1,4 +1,3 @@
-"""Graph service domain logic."""
 
 from __future__ import annotations
 
@@ -41,7 +40,6 @@ class GraphService:
         self._bus = bus
         self._settings = settings
 
-    # ---------------------------------------------------------------- follow
 
     async def follow(self, follower_id: str, followee_id: str) -> FollowResponse:
         if follower_id == followee_id:
@@ -102,7 +100,6 @@ class GraphService:
     async def is_following(self, follower_id: str, followee_id: str) -> bool:
         return await self._follows.is_following(follower_id, followee_id)
 
-    # ------------------------------------------------------------------ block
 
     async def block(self, blocker_id: str, blocked_id: str) -> BlockResponse:
         if blocker_id == blocked_id:
@@ -187,7 +184,6 @@ class GraphService:
             for b in rows
         ]
 
-    # ------------------------------------------------------------------- mute
 
     async def mute(self, user_id: str, muted_id: str) -> MuteResponse:
         if user_id == muted_id:

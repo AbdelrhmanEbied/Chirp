@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 FROM python:3.12-slim AS builder
 
 ENV PYTHONUNBUFFERED=1 \

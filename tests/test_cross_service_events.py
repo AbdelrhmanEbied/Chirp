@@ -1,8 +1,3 @@
-"""Cross-service event flow tests.
-
-These tests verify that events are produced and consumed correctly
-across service boundaries, using in-memory buses and SQLite databases.
-"""
 
 from __future__ import annotations
 
@@ -33,19 +28,16 @@ async def db():
 
 
 async def test_idempotent_event_processing(db) -> None:
-    """Processing the same event twice should be idempotent."""
     from chirp_common.idempotency import ProcessedEvent
 
     event = make_event(EventType.POST_CREATED, subject_id="post-01")
 
-    # First claim should succeed
     first = await claim_event(
         db, event_id=event.id, consumer="test-consumer", event_type=event.type.value,
     )
     assert first is True
     await db.commit()
 
-    # Second claim should be rejected
     second = await claim_event(
         db, event_id=event.id, consumer="test-consumer", event_type=event.type.value,
     )
@@ -53,7 +45,6 @@ async def test_idempotent_event_processing(db) -> None:
 
 
 async def test_different_consumers_can_process_same_event(db) -> None:
-    """Different consumers can independently process the same event."""
     event = make_event(EventType.POST_CREATED, subject_id="post-01")
 
     first = await claim_event(
@@ -69,7 +60,6 @@ async def test_different_consumers_can_process_same_event(db) -> None:
 
 
 async def test_event_envelope_serialization() -> None:
-    """Events can be serialized and deserialized without data loss."""
     original = EventEnvelope.create(
         type=EventType.POST_CREATED,
         producer="post-service",

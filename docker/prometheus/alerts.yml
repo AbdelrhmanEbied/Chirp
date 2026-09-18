@@ -1,4 +1,3 @@
-# Alerting rules for Chirp microservices.
 groups:
   - name: service_availability
     rules:

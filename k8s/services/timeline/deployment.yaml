@@ -1,0 +1,140 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: timeline
+  namespace: chirp-prod
+  labels:
+    app: timeline
+    service: timeline
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: timeline
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: timeline
+    spec:
+      containers:
+        - name: timeline
+          image: chirp/timeline:latest
+          ports:
+            - containerPort: 8005
+          envFrom:
+            - configMapRef:
+                name: chirp-config
+            - secretRef:
+                name: chirp-secrets
+          env:
+            - name: SERVICE_NAME
+              value: "timeline-service"
+            - name: PORT
+              value: "8005"
+            - name: DB_APPLICATION_NAME
+              value: "timeline-service"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: chirp-secrets
+                  key: DATABASE_URL_TIMELINE
+            - name: USER_SERVICE_URL
+              value: "http://user-svc.chirp-prod.svc.cluster.local:8002"
+            - name: POST_SERVICE_URL
+              value: "http://post-svc.chirp-prod.svc.cluster.local:8003"
+            - name: GRAPH_SERVICE_URL
+              value: "http://graph-svc.chirp-prod.svc.cluster.local:8004"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8005
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8005
+            initialDelaySeconds: 5
+            periodSeconds: 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: timeline-worker
+  namespace: chirp-prod
+  labels:
+    app: timeline-worker
+    service: timeline
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: timeline-worker
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: timeline-worker
+    spec:
+      containers:
+        - name: timeline-worker
+          image: chirp/timeline:latest
+          command: ["celery", "-A", "app.worker", "worker", "--loglevel=info"]
+          envFrom:
+            - configMapRef:
+                name: chirp-config
+            - secretRef:
+                name: chirp-secrets
+          env:
+            - name: SERVICE_NAME
+              value: "timeline-service"
+            - name: PORT
+              value: "8005"
+            - name: DB_APPLICATION_NAME
+              value: "timeline-service"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: chirp-secrets
+                  key: DATABASE_URL_TIMELINE
+            - name: USER_SERVICE_URL
+              value: "http://user-svc.chirp-prod.svc.cluster.local:8002"
+            - name: POST_SERVICE_URL
+              value: "http://post-svc.chirp-prod.svc.cluster.local:8003"
+            - name: GRAPH_SERVICE_URL
+              value: "http://graph-svc.chirp-prod.svc.cluster.local:8004"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8005
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8005
+            initialDelaySeconds: 5
+            periodSeconds: 5

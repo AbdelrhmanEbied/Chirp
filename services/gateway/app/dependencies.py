@@ -1,9 +1,3 @@
-"""Composition root and FastAPI dependencies for the gateway.
-
-The gateway owns no database or event bus. Its lifetime resources are
-ServiceClient instances for every downstream service, a JWT codec for
-verifying access tokens, and a Redis-backed rate limiter.
-"""
 
 from __future__ import annotations
 
