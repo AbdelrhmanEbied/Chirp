@@ -8,6 +8,14 @@ ECR_REPO="chirp-prod"
 
 log() { echo -e "\033[1;36m==> $1\033[0m"; }
 
+if ! command -v aws &>/dev/null; then
+  log "Installing AWS CLI"
+  curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+  unzip -q awscliv2.zip
+  sudo ./aws/install
+  rm -rf aws awscliv2.zip
+fi
+
 if ! command -v terraform &>/dev/null; then
   log "Installing Terraform"
   sudo apt-get update -qq && sudo apt-get install -y -qq gnupg software-properties-common curl
