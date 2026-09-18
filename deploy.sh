@@ -96,7 +96,7 @@ kubectl create secret generic chirp-secrets \
   --from-literal=DATABASE_URL_MODERATION="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@$(cd infra/terraform && terraform output -raw rds_host):$(cd infra/terraform && terraform output -raw rds_port)/chirp_moderation" \
   --from-literal=REDIS_URL="redis://$(cd infra/terraform && terraform output -raw redis_endpoint):$(cd infra/terraform && terraform output -raw redis_port)/0" \
   --from-literal=EVENT_BUS_URL="redis://$(cd infra/terraform && terraform output -raw redis_endpoint):$(cd infra/terraform && terraform output -raw redis_port)/1" \
-  --from-literal=S3_BUCKET="$ECR_REPO-media" \
+  --from-literal=S3_BUCKET="$(cd infra/terraform && terraform output -raw s3_media_bucket)" \
   -n "$NAMESPACE"
 
 log "Step 6: Installing AWS Load Balancer Controller"

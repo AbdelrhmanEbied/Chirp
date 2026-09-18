@@ -71,6 +71,10 @@ resource "aws_db_instance" "chirp" {
     Project     = local.project
     Environment = local.environment
   }
+
+  lifecycle {
+    ignore_changes = [password]
+  }
 }
 
 provider "postgresql" {

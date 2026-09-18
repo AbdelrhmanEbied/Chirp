@@ -1,5 +1,5 @@
 resource "aws_s3_bucket" "media" {
-  bucket = "${local.project}-${local.environment}-media"
+  bucket = "${local.project}-${local.environment}-media-${data.aws_caller_identity.current.account_id}"
 
   tags = {
     Name        = "${local.project}-${local.environment}-media"
@@ -55,7 +55,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "media" {
 }
 
 resource "aws_s3_bucket" "frontend" {
-  bucket = "${local.project}-${local.environment}-frontend"
+  bucket = "${local.project}-${local.environment}-frontend-${data.aws_caller_identity.current.account_id}"
 
   tags = {
     Name        = "${local.project}-${local.environment}-frontend"
