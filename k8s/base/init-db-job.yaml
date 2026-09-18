@@ -1,0 +1,47 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: init-db
+  namespace: chirp-prod
+spec:
+  backoffLimit: 5
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        app: init-db
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: init-db
+          image: postgres:16-alpine
+          command:
+            - /bin/sh
+            - -c
+            - |
+              DBS="chirp_auth chirp_user chirp_post chirp_graph chirp_timeline chirp_search chirp_notification chirp_messaging chirp_media chirp_moderation"
+              for db in $DBS; do
+                echo "Creating database: $db"
+                psql "postgresql://chirp_admin:${POSTGRES_PASSWORD}@${RDS_HOST}:${RDS_PORT}/postgres" \
+                  -c "SELECT 1 FROM pg_database WHERE datname='$db'" | grep -q 1 || \
+                  psql "postgresql://chirp_admin:${POSTGRES_PASSWORD}@${RDS_HOST}:${RDS_PORT}/postgres" \
+                  -c "CREATE DATABASE $db;"
+                echo "Done: $db"
+              done
+              echo "All databases created successfully"
+          env:
+            - name: RDS_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: chirp-secrets
+                  key: RDS_HOST
+            - name: RDS_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: chirp-secrets
+                  key: RDS_PORT
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: chirp-secrets
+                  key: POSTGRES_PASSWORD

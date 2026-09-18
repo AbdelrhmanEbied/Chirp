@@ -84,6 +84,8 @@ ECR_BASE="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/chirp-prod"
 kubectl create secret generic chirp-secrets \
   --from-literal=JWT_SECRET="$TF_VAR_jwt_secret" \
   --from-literal=POSTGRES_PASSWORD="$TF_VAR_db_password" \
+  --from-literal=RDS_HOST="$(cd infra/terraform && terraform output -raw rds_host)" \
+  --from-literal=RDS_PORT="$(cd infra/terraform && terraform output -raw rds_port)" \
   --from-literal=DATABASE_URL_AUTH="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@$(cd infra/terraform && terraform output -raw rds_host):$(cd infra/terraform && terraform output -raw rds_port)/chirp_auth" \
   --from-literal=DATABASE_URL_USER="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@$(cd infra/terraform && terraform output -raw rds_host):$(cd infra/terraform && terraform output -raw rds_port)/chirp_user" \
   --from-literal=DATABASE_URL_POST="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@$(cd infra/terraform && terraform output -raw rds_host):$(cd infra/terraform && terraform output -raw rds_port)/chirp_post" \
@@ -98,6 +100,12 @@ kubectl create secret generic chirp-secrets \
   --from-literal=EVENT_BUS_URL="redis://$(cd infra/terraform && terraform output -raw redis_endpoint):$(cd infra/terraform && terraform output -raw redis_port)/1" \
   --from-literal=S3_BUCKET="$(cd infra/terraform && terraform output -raw s3_media_bucket)" \
   -n "$NAMESPACE"
+
+log "Step 5b: Creating service databases"
+kubectl delete job init-db -n "$NAMESPACE" 2>/dev/null || true
+kubectl apply -f k8s/base/init-db-job.yaml
+kubectl wait --for=condition=complete job/init-db -n "$NAMESPACE" --timeout=120s
+log "Databases created"
 
 log "Step 6: Installing AWS Load Balancer Controller"
 helm repo add eks https://aws.github.io/eks-charts 2>/dev/null || true

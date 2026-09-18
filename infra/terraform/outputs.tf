@@ -51,7 +51,7 @@ output "rds_port" {
 
 output "rds_databases" {
   description = "List of service databases created"
-  value       = [for db in postgresql_database.service_dbs : db.name]
+  value       = local.databases
 }
 
 output "redis_endpoint" {
@@ -93,7 +93,7 @@ output "database_urls" {
   description = "DATABASE_URL for each service"
   sensitive   = true
   value = {
-    for name, db in postgresql_database.service_dbs :
-    name => "postgresql+asyncpg://chirp_admin:${var.db_password}@${aws_db_instance.chirp.address}:${aws_db_instance.chirp.port}/${db.name}"
+    for name in local.databases :
+    name => "postgresql+asyncpg://chirp_admin:${var.db_password}@${aws_db_instance.chirp.address}:${aws_db_instance.chirp.port}/${name}"
   }
 }

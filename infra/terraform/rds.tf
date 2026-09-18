@@ -76,31 +76,3 @@ resource "aws_db_instance" "chirp" {
     ignore_changes = [password]
   }
 }
-
-provider "postgresql" {
-  host     = aws_db_instance.chirp.address
-  port     = aws_db_instance.chirp.port
-  username = "chirp_admin"
-  password = var.db_password
-  sslmode  = "require"
-}
-
-resource "postgresql_database" "service_dbs" {
-  for_each = toset([
-    "chirp_auth",
-    "chirp_user",
-    "chirp_post",
-    "chirp_graph",
-    "chirp_timeline",
-    "chirp_search",
-    "chirp_notification",
-    "chirp_messaging",
-    "chirp_media",
-    "chirp_moderation",
-  ])
-
-  name       = each.key
-  encoding   = "UTF8"
-
-  depends_on = [aws_db_instance.chirp]
-}
