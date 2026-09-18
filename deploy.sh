@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-REGION="us-east-1"
+REGION="ca-central-1"
 CLUSTER="chirp-prod"
 NAMESPACE="chirp-prod"
 ECR_REPO="chirp-prod"
@@ -40,7 +40,7 @@ if ! command -v k6 &>/dev/null; then
   log "Installing k6"
   curl -sS https://dl.k6.io/key.gpg | sudo gpg --dearmor --yes -o /usr/share/keyrings/k6-archive-keyring.gpg
   echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
-  sudo apt-get update -qq && sudo apt-get install -y -qq k6
+  sudo apt-get update -qq && sudo apt-get install -y -qq --allow-unauthenticated k6
 fi
 
 log "Step 1: Creating Terraform state bucket"
