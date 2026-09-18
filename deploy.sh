@@ -7,6 +7,15 @@ NAMESPACE="chirp-prod"
 
 log() { echo -e "\033[1;36m==> $1\033[0m"; }
 
+if [ "${1:-}" = "--destroy" ]; then
+  log "DESTROYING ALL INFRASTRUCTURE"
+  cd infra/terraform
+  terraform destroy -auto-approve
+  cd ../..
+  log "Infrastructure destroyed. Run ./deploy.sh to redeploy."
+  exit 0
+fi
+
 if ! command -v aws &>/dev/null; then
   log "Installing AWS CLI"
   curl "https://awscli.amazonaws.com/awscli-exe-linux-x64.zip" -o "awscliv2.zip"
@@ -50,7 +59,7 @@ TF_BUCKET="chirp-terraform-${ACCOUNT_ID}"
 INFRA_READY=false
 if aws eks describe-cluster --name "$CLUSTER" --region "$REGION" &>/dev/null; then
   INFRA_READY=true
-  log "EKS cluster $CLUSTER already exists — skipping Terraform"
+  log "EKS cluster $CLUSTER already exists"
 fi
 
 if [ "$INFRA_READY" = false ]; then
@@ -72,25 +81,28 @@ if [ "$INFRA_READY" = false ]; then
 
   log "Step 3: Deploying infrastructure with Terraform"
   cd infra/terraform
-  terraform init -backend-config="bucket=$TF_BUCKET" -reconfigure
+  terraform init -backend-config="bucket=$TF_BUCKET"
   terraform apply -auto-approve
   cd ../..
 else
-  log "Step 1-3: Infrastructure already exists, loading secrets"
-  if [ -f .env.secrets ]; then
-    source .env.secrets
-    export TF_VAR_jwt_secret="$JWT_SECRET"
-    export TF_VAR_db_password="$DB_PASSWORD"
-  else
-    log "ERROR: .env.secrets not found. Run without infrastructure first."
+  log "Loading existing secrets from .env.secrets"
+  if [ ! -f .env.secrets ]; then
+    log "ERROR: .env.secrets not found. Run ./deploy.sh without --destroy first."
     exit 1
   fi
+  source .env.secrets
+  export TF_VAR_jwt_secret="$JWT_SECRET"
+  export TF_VAR_db_password="$DB_PASSWORD"
 fi
 
 log "Step 4: Configuring kubectl"
 aws eks update-kubeconfig --name "$CLUSTER" --region "$REGION"
 
-log "Step 5: Creating K8s secrets"
+log "Step 5: Granting EKS access"
+aws eks create-access-entry --cluster-name "$CLUSTER" --principal-arn "arn:aws:iam::${ACCOUNT_ID}:user/abdo-admin" --type STANDARD --region "$REGION" 2>/dev/null || true
+aws eks associate-access-policy --cluster-name "$CLUSTER" --principal-arn "arn:aws:iam::${ACCOUNT_ID}:user/abdo-admin" --policy-arn "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy" --access-scope type=cluster --region "$REGION" 2>/dev/null || true
+
+log "Step 6: Creating K8s namespace and secrets"
 kubectl create namespace "$NAMESPACE" 2>/dev/null || true
 kubectl delete secret chirp-secrets -n "$NAMESPACE" 2>/dev/null || true
 
@@ -116,13 +128,14 @@ kubectl create secret generic chirp-secrets \
   --from-literal=S3_BUCKET="$(cd infra/terraform && terraform output -raw s3_media_bucket)" \
   -n "$NAMESPACE"
 
-log "Step 5b: Creating service databases"
+log "Step 7: Creating service databases"
 kubectl delete job init-db -n "$NAMESPACE" 2>/dev/null || true
+kubectl wait --for=delete pod -l app=init-db -n "$NAMESPACE" --timeout=30s 2>/dev/null || true
 kubectl apply -f k8s/base/init-db-job.yaml
-kubectl wait --for=condition=complete job/init-db -n "$NAMESPACE" --timeout=120s
+kubectl wait --for=condition=complete job/init-db -n "$NAMESPACE" --timeout=180s
 log "Databases created"
 
-log "Step 6: Installing AWS Load Balancer Controller"
+log "Step 8: Installing AWS Load Balancer Controller"
 helm repo add eks https://aws.github.io/eks-charts 2>/dev/null || true
 helm repo update
 helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller \
@@ -132,7 +145,7 @@ helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-contro
   --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="" \
   --wait
 
-log "Step 7: Building and pushing Docker images"
+log "Step 9: Building and pushing Docker images"
 aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com"
 
 log "  Building base image..."
@@ -146,10 +159,10 @@ for svc in gateway auth user post graph timeline search notification messaging m
   docker push "$ECR_URL:${svc}-latest"
 done
 
-log "Step 8: Applying K8s base resources"
+log "Step 10: Applying K8s base resources"
 kubectl apply -f k8s/base/
 
-log "Step 9: Running migrations"
+log "Step 11: Running migrations"
 for svc in auth user post graph timeline search notification messaging media moderation; do
   log "  Migrating $svc..."
   kubectl delete job "$svc-migrate" -n "$NAMESPACE" --ignore-not-found
@@ -157,20 +170,20 @@ for svc in auth user post graph timeline search notification messaging media mod
   kubectl wait --for=condition=complete "job/$svc-migrate" -n "$NAMESPACE" --timeout=120s
 done
 
-log "Step 10: Deploying services"
+log "Step 12: Deploying services"
 for svc in gateway auth user post graph timeline search notification messaging media moderation; do
   sed -i "s|image: chirp/${svc}:latest|image: ${ECR_URL}:${svc}-latest|g" k8s/services/$svc/deployment.yaml k8s/services/$svc/job-migrate.yaml 2>/dev/null
 done
 kubectl apply -f k8s/services/
 kubectl apply -f k8s/ingress/
 
-log "Step 11: Waiting for rollout"
+log "Step 13: Waiting for rollout"
 for svc in gateway auth user post graph timeline search notification messaging media moderation; do
   kubectl rollout status "deployment/$svc" -n "$NAMESPACE" --timeout=300s &
 done
 wait
 
-log "Step 12: Deploying monitoring (Prometheus + Grafana)"
+log "Step 14: Deploying monitoring (Prometheus + Grafana)"
 kubectl apply -f k8s/monitoring/prometheus.yaml
 kubectl apply -f k8s/monitoring/grafana.yaml
 kubectl apply -f k8s/monitoring/ingress.yaml
@@ -178,7 +191,7 @@ kubectl rollout status deployment/prometheus -n monitoring --timeout=120s &
 kubectl rollout status deployment/grafana -n monitoring --timeout=120s &
 wait
 
-log "Step 13: Deploying frontend"
+log "Step 15: Deploying frontend"
 cd web && npm run build
 FRONTEND_BUCKET=$(cd ../infra/terraform && terraform output -raw s3_frontend_bucket)
 CF_ID=$(cd ../infra/terraform && terraform output -raw cloudfront_distribution_id)
@@ -189,27 +202,11 @@ cd ..
 log "============================================"
 log "DEPLOYMENT COMPLETE"
 log "============================================"
-log ""
-log "API Gateway URL:"
 ALB_DNS=$(kubectl get ingress gateway-ingress -n "$NAMESPACE" -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-echo "  http://$ALB_DNS"
-log ""
-log "Frontend URL:"
 CF_DOMAIN=$(cd infra/terraform && terraform output -raw cloudfront_domain)
-echo "  https://$CF_DOMAIN"
-log ""
-log "Grafana Dashboard:"
-MON_ALB=$(kubectl get ingress monitoring-ingress -n monitoring -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "pending")
-echo "  https://$MON_ALB/grafana  (user: admin / pass: admin)"
-log ""
-log "Prometheus:"
-echo "  https://$MON_ALB/prometheus"
-log ""
-log "To check pod status:"
+echo ""
+echo "  API:     http://$ALB_DNS"
+echo "  Frontend: https://$CF_DOMAIN"
+echo ""
 echo "  kubectl get pods -n $NAMESPACE"
-log ""
-log "To check logs:"
 echo "  kubectl logs -f deployment/gateway -n $NAMESPACE"
-log ""
-log "To run load tests:"
-echo "  k6 run --vus 50 --duration 5m --env BASE_URL=http://$ALB_DNS loadtest/critical_path.js"

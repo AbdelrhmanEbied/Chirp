@@ -62,9 +62,8 @@ resource "aws_db_instance" "chirp" {
 
   performance_insights_enabled = true
 
-  deletion_protection = true
-  skip_final_snapshot = false
-  final_snapshot_identifier = "${local.project}-${local.environment}-final"
+  deletion_protection = false
+  skip_final_snapshot = true
 
   tags = {
     Name        = "${local.project}-${local.environment}"
