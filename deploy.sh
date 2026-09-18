@@ -38,9 +38,11 @@ fi
 
 if ! command -v k6 &>/dev/null; then
   log "Installing k6"
-  curl -sS https://github.com/grafana/k6/releases/download/v0.49.0/k6-v0.49.0-linux-amd64.tar.gz | tar xz
-  sudo mv k6-v0.49.0-linux-amd64/k6 /usr/local/bin/k6
-  rm -rf k6-v0.49.0-linux-amd64
+  K6_VERSION=$(curl -s https://api.github.com/repos/grafana/k6/releases/latest | grep tag_name | cut -d '"' -f 4)
+  curl -sL "https://github.com/grafana/k6/releases/download/${K6_VERSION}/k6-${K6_VERSION}-linux-amd64.tar.gz" -o /tmp/k6.tar.gz
+  tar -xzf /tmp/k6.tar.gz -C /tmp
+  sudo mv "/tmp/k6-${K6_VERSION}-linux-amd64/k6" /usr/local/bin/k6
+  rm -rf /tmp/k6*
 fi
 
 log "Step 1: Checking Terraform state bucket"
