@@ -48,8 +48,8 @@ resource "aws_elasticache_replication_group" "chirp" {
   engine_version       = "7.0"
   port                 = 6379
 
-  automatic_failover_enabled = true
-  multi_az_enabled          = true
+  automatic_failover_enabled = false
+  multi_az_enabled          = false
 
   at_rest_encryption_enabled = true
   transit_encryption_enabled = length(var.redis_password) > 0

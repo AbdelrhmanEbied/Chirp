@@ -10,6 +10,8 @@ router = APIRouter(prefix="/api/v1", tags=["gateway"])
 
 
 async def _enforce_rate_limit(context: Context, request: Request) -> None:
+    if not context.settings.gateway_rate_limit_enabled:
+        return
     ip = client_ip(request) or "unknown"
     result = await context.rate_limiter.check(
         "gateway",

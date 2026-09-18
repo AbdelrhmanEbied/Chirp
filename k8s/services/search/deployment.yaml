@@ -48,10 +48,10 @@ spec:
           resources:
             requests:
               cpu: 50m
-              memory: 32Mi
+              memory: 128Mi
             limits:
               cpu: 100m
-              memory: 32Mi
+              memory: 128Mi
           livenessProbe:
             httpGet:
               path: /health/live
@@ -74,7 +74,7 @@ metadata:
     app: search-worker
     service: search
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: search-worker
@@ -114,19 +114,7 @@ spec:
           resources:
             requests:
               cpu: 50m
-              memory: 32Mi
+              memory: 128Mi
             limits:
               cpu: 100m
-              memory: 32Mi
-          livenessProbe:
-            httpGet:
-              path: /health/live
-              port: 8006
-            initialDelaySeconds: 15
-            periodSeconds: 10
-          readinessProbe:
-            httpGet:
-              path: /health/ready
-              port: 8006
-            initialDelaySeconds: 5
-            periodSeconds: 5
+              memory: 128Mi

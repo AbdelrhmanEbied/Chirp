@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-REGION="ca-central-1"
+REGION="us-east-1"
 CLUSTER="chirp-prod"
 NAMESPACE="chirp-prod"
 ECR_REPO="chirp-prod"
@@ -79,6 +79,7 @@ kubectl delete secret chirp-secrets -n "$NAMESPACE" 2>/dev/null || true
 
 ECR_URL=$(cd infra/terraform && terraform output -raw ecr_repository_url)
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+ECR_BASE="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/chirp-prod"
 
 kubectl create secret generic chirp-secrets \
   --from-literal=JWT_SECRET="$TF_VAR_jwt_secret" \
@@ -111,14 +112,21 @@ helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-contro
 log "Step 7: Building and pushing Docker images"
 aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com"
 
+log "  Building base image..."
+docker build -t chirp-base:latest -f Dockerfile.base .
+docker tag chirp-base:latest "$ECR_URL:base"
+docker push "$ECR_URL:base"
+
 for svc in gateway auth user post graph timeline search notification messaging media moderation; do
   log "  Building $svc..."
-  docker build -t "$ECR_URL-$svc:latest" -t "$ECR_URL-$svc:${GITHUB_SHA:-latest}" -f services/$svc/Dockerfile .
-  docker push "$ECR_URL-$svc:latest"
-  docker push "$ECR_URL-${svc}:${GITHUB_SHA:-latest}"
+  docker build -t "$ECR_URL:${svc}-latest" -f services/$svc/Dockerfile .
+  docker push "$ECR_URL:${svc}-latest"
 done
 
-log "Step 8: Running migrations"
+log "Step 8: Applying K8s base resources"
+kubectl apply -f k8s/base/
+
+log "Step 9: Running migrations"
 for svc in auth user post graph timeline search notification messaging media moderation; do
   log "  Migrating $svc..."
   kubectl delete job "$svc-migrate" -n "$NAMESPACE" --ignore-not-found
@@ -126,18 +134,20 @@ for svc in auth user post graph timeline search notification messaging media mod
   kubectl wait --for=condition=complete "job/$svc-migrate" -n "$NAMESPACE" --timeout=120s
 done
 
-log "Step 9: Deploying services"
-kubectl apply -f k8s/base/
+log "Step 10: Deploying services"
+for svc in gateway auth user post graph timeline search notification messaging media moderation; do
+  sed -i "s|image: chirp/${svc}:latest|image: ${ECR_URL}:${svc}-latest|g" k8s/services/$svc/deployment.yaml k8s/services/$svc/job-migrate.yaml 2>/dev/null
+done
 kubectl apply -f k8s/services/
 kubectl apply -f k8s/ingress/
 
-log "Step 10: Waiting for rollout"
+log "Step 11: Waiting for rollout"
 for svc in gateway auth user post graph timeline search notification messaging media moderation; do
   kubectl rollout status "deployment/$svc" -n "$NAMESPACE" --timeout=300s &
 done
 wait
 
-log "Step 11: Deploying monitoring (Prometheus + Grafana)"
+log "Step 12: Deploying monitoring (Prometheus + Grafana)"
 kubectl apply -f k8s/monitoring/prometheus.yaml
 kubectl apply -f k8s/monitoring/grafana.yaml
 kubectl apply -f k8s/monitoring/ingress.yaml
@@ -145,7 +155,7 @@ kubectl rollout status deployment/prometheus -n monitoring --timeout=120s &
 kubectl rollout status deployment/grafana -n monitoring --timeout=120s &
 wait
 
-log "Step 12: Deploying frontend"
+log "Step 13: Deploying frontend"
 cd web && npm run build
 FRONTEND_BUCKET=$(cd ../infra/terraform && terraform output -raw s3_frontend_bucket)
 CF_ID=$(cd ../infra/terraform && terraform output -raw cloudfront_distribution_id)
@@ -167,7 +177,7 @@ echo "  https://$CF_DOMAIN"
 log ""
 log "Grafana Dashboard:"
 MON_ALB=$(kubectl get ingress monitoring-ingress -n monitoring -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "pending")
-echo "  https://$MON_ALB/grrafana  (user: admin / pass: admin)"
+echo "  https://$MON_ALB/grafana  (user: admin / pass: admin)"
 log ""
 log "Prometheus:"
 echo "  https://$MON_ALB/prometheus"

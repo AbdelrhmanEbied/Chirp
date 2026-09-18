@@ -26,6 +26,7 @@ class GatewaySettings(ServiceSettings, RedisSettings):
 
     gateway_rate_limit: int = 120
     gateway_rate_window_seconds: int = 60
+    gateway_rate_limit_enabled: bool = True
 
 
 @lru_cache(maxsize=1)

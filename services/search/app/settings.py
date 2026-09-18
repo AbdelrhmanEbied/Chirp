@@ -17,7 +17,7 @@ class SearchSettings(ServiceSettings, DatabaseSettings, RedisSettings, EventBusS
     service_name: str = "search-service"
     port: int = 8006
     max_search_results: int = 50
-    user_service_url: str = "http://user-service:8001"
+    user_service_url: str = "http://user-svc:8002"
 
 
 @lru_cache(maxsize=1)

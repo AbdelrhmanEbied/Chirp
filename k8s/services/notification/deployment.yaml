@@ -46,10 +46,10 @@ spec:
           resources:
             requests:
               cpu: 50m
-              memory: 32Mi
+              memory: 128Mi
             limits:
               cpu: 100m
-              memory: 32Mi
+              memory: 128Mi
           livenessProbe:
             httpGet:
               path: /health/live
@@ -72,7 +72,7 @@ metadata:
     app: notification-worker
     service: notification
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: notification-worker
@@ -110,19 +110,7 @@ spec:
           resources:
             requests:
               cpu: 50m
-              memory: 32Mi
+              memory: 128Mi
             limits:
               cpu: 100m
-              memory: 32Mi
-          livenessProbe:
-            httpGet:
-              path: /health/live
-              port: 8007
-            initialDelaySeconds: 15
-            periodSeconds: 10
-          readinessProbe:
-            httpGet:
-              path: /health/ready
-              port: 8007
-            initialDelaySeconds: 5
-            periodSeconds: 5
+              memory: 128Mi

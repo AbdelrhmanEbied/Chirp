@@ -52,10 +52,10 @@ spec:
           resources:
             requests:
               cpu: 50m
-              memory: 32Mi
+              memory: 128Mi
             limits:
               cpu: 100m
-              memory: 32Mi
+              memory: 128Mi
           livenessProbe:
             httpGet:
               path: /health/live
@@ -78,7 +78,7 @@ metadata:
     app: timeline-worker
     service: timeline
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: timeline-worker
@@ -122,19 +122,7 @@ spec:
           resources:
             requests:
               cpu: 50m
-              memory: 32Mi
+              memory: 128Mi
             limits:
               cpu: 100m
-              memory: 32Mi
-          livenessProbe:
-            httpGet:
-              path: /health/live
-              port: 8005
-            initialDelaySeconds: 15
-            periodSeconds: 10
-          readinessProbe:
-            httpGet:
-              path: /health/ready
-              port: 8005
-            initialDelaySeconds: 5
-            periodSeconds: 5
+              memory: 128Mi

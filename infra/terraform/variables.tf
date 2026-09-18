@@ -1,6 +1,6 @@
 variable "aws_region" {
   type    = string
-  default = "ca-central-1"
+  default = "us-east-1"
 }
 
 variable "db_password" {
@@ -26,37 +26,37 @@ variable "jwt_secret" {
 
 variable "db_instance_class" {
   type    = string
-  default = "db.r6g.xlarge"
+  default = "db.t3.micro"
 }
 
 variable "redis_node_type" {
   type    = string
-  default = "cache.r6g.large"
+  default = "cache.t3.micro"
 }
 
 variable "redis_num_nodes" {
   type    = number
-  default = 3
+  default = 1
 }
 
 variable "eks_node_instance_types" {
   type    = list(string)
-  default = ["m6i.xlarge"]
+  default = ["t3.micro"]
 }
 
 variable "eks_desired_size" {
   type    = number
-  default = 3
+  default = 2
 }
 
 variable "eks_min_size" {
   type    = number
-  default = 2
+  default = 1
 }
 
 variable "eks_max_size" {
   type    = number
-  default = 10
+  default = 4
 }
 
 variable "domain_name" {

@@ -1,0 +1,31 @@
+FROM python:3.12-slim AS builder
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /srv
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends build-essential \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY libs/chirp-common /srv/libs/chirp-common
+RUN pip install --no-cache-dir /srv/libs/chirp-common
+
+FROM python:3.12-slim AS runtime
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends curl \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+RUN pip install --no-cache-dir --no-compile "uvicorn[standard]>=0.30" "psycopg[binary]>=3.2" \
+ && rm -rf /root/.cache
+
+RUN useradd --create-home --uid 10001 chirp && mkdir -p /srv/service && chown -R chirp /srv
+USER chirp
+
+WORKDIR /srv/service

@@ -43,19 +43,14 @@ spec:
                 secretKeyRef:
                   name: chirp-secrets
                   key: DATABASE_URL_MEDIA
-            - name: AWS_ROLE_ARN
-              valueFrom:
-                secretKeyRef:
-                  name: chirp-secrets
-                  key: AWS_ROLE_ARN
-                  optional: true
+
           volumeMounts:
             - name: uploads
               mountPath: /srv/uploads
           resources:
             requests:
               cpu: 50m
-              memory: 32Mi
+              memory: 128Mi
             limits:
               cpu: 200m
               memory: 128Mi

@@ -25,7 +25,7 @@ data:
             action: replace
             target_label: __address__
             regex: (.+)
-            replacement: $1
+            replacement: http://localhost:$1
 ---
 apiVersion: apps/v1
 kind: Deployment

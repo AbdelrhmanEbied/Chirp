@@ -50,7 +50,7 @@ resource "aws_db_instance" "chirp" {
   username = "chirp_admin"
   password = var.db_password
 
-  multi_az               = true
+  multi_az               = false
   db_subnet_group_name   = aws_db_subnet_group.chirp.name
   vpc_security_group_ids = [aws_security_group.rds.id]
 
