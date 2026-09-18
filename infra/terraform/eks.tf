@@ -19,7 +19,7 @@ module "eks" {
       min_size       = var.eks_min_size
       max_size       = var.eks_max_size
 
-      instance_types = var.eks_node_instance_types
+      instance_types = ["t3.micro"]
       capacity_type  = "ON_DEMAND"
 
       labels = {

@@ -47,11 +47,11 @@ spec:
               value: "http://user-svc.chirp-prod.svc.cluster.local:8002"
           resources:
             requests:
-              cpu: 100m
-              memory: 64Mi
+              cpu: 50m
+              memory: 32Mi
             limits:
-              cpu: 500m
-              memory: 256Mi
+              cpu: 100m
+              memory: 32Mi
           livenessProbe:
             httpGet:
               path: /health/live
@@ -113,11 +113,11 @@ spec:
               value: "http://user-svc.chirp-prod.svc.cluster.local:8002"
           resources:
             requests:
-              cpu: 100m
-              memory: 64Mi
+              cpu: 50m
+              memory: 32Mi
             limits:
-              cpu: 500m
-              memory: 256Mi
+              cpu: 100m
+              memory: 32Mi
           livenessProbe:
             httpGet:
               path: /health/live

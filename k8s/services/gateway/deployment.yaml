@@ -58,11 +58,11 @@ spec:
               value: "http://moderation-svc.chirp-prod.svc.cluster.local:8010"
           resources:
             requests:
-              cpu: 250m
-              memory: 128Mi
+              cpu: 50m
+              memory: 32Mi
             limits:
-              cpu: 1000m
-              memory: 512Mi
+              cpu: 200m
+              memory: 128Mi
           livenessProbe:
             httpGet:
               path: /health/live
