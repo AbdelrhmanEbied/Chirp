@@ -23,9 +23,9 @@ class AuthSettings(ServiceSettings, DatabaseSettings, RedisSettings, EventBusSet
     refresh_token_ttl_seconds: int = 60 * 60 * 24 * 30
     max_active_sessions_per_user: int = 10
 
-    login_rate_limit: int = 10
+    login_rate_limit: int = 100
     login_rate_window_seconds: int = 60
-    register_rate_limit: int = 5
+    register_rate_limit: int = 50
     register_rate_window_seconds: int = 3600
 
 
