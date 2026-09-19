@@ -165,7 +165,7 @@ kubectl apply -f k8s/base/
 
 log "Step 11: Fixing image references"
 for svc in gateway auth user post graph timeline search notification messaging media moderation; do
-  sed -i "s|image: chirp/${svc}:latest|image: ${ECR_URL}:${svc}-latest|g" k8s/services/$svc/deployment.yaml k8s/services/$svc/job-migrate.yaml 2>/dev/null
+  sed -i "s|image: chirp/${svc}:latest|image: ${ECR_URL}:${svc}-latest|g" k8s/services/$svc/deployment.yaml k8s/services/$svc/job-migrate.yaml 2>/dev/null || true
 done
 
 log "Step 12: Running migrations"
