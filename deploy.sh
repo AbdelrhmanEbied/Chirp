@@ -162,7 +162,12 @@ done
 log "Step 10: Applying K8s base resources"
 kubectl apply -f k8s/base/
 
-log "Step 11: Running migrations"
+log "Step 11: Fixing image references"
+for svc in gateway auth user post graph timeline search notification messaging media moderation; do
+  sed -i "s|image: chirp/${svc}:latest|image: ${ECR_URL}:${svc}-latest|g" k8s/services/$svc/deployment.yaml k8s/services/$svc/job-migrate.yaml 2>/dev/null
+done
+
+log "Step 12: Running migrations"
 for svc in auth user post graph timeline search notification messaging media moderation; do
   log "  Migrating $svc..."
   kubectl delete job "$svc-migrate" -n "$NAMESPACE" --ignore-not-found
@@ -170,20 +175,17 @@ for svc in auth user post graph timeline search notification messaging media mod
   kubectl wait --for=condition=complete "job/$svc-migrate" -n "$NAMESPACE" --timeout=120s
 done
 
-log "Step 12: Deploying services"
-for svc in gateway auth user post graph timeline search notification messaging media moderation; do
-  sed -i "s|image: chirp/${svc}:latest|image: ${ECR_URL}:${svc}-latest|g" k8s/services/$svc/deployment.yaml k8s/services/$svc/job-migrate.yaml 2>/dev/null
-done
+log "Step 13: Deploying services"
 kubectl apply -f k8s/services/
 kubectl apply -f k8s/ingress/
 
-log "Step 13: Waiting for rollout"
+log "Step 14: Waiting for rollout"
 for svc in gateway auth user post graph timeline search notification messaging media moderation; do
   kubectl rollout status "deployment/$svc" -n "$NAMESPACE" --timeout=300s &
 done
 wait
 
-log "Step 14: Deploying monitoring (Prometheus + Grafana)"
+log "Step 15: Deploying monitoring (Prometheus + Grafana)"
 kubectl apply -f k8s/monitoring/prometheus.yaml
 kubectl apply -f k8s/monitoring/grafana.yaml
 kubectl apply -f k8s/monitoring/ingress.yaml
@@ -191,7 +193,7 @@ kubectl rollout status deployment/prometheus -n monitoring --timeout=120s &
 kubectl rollout status deployment/grafana -n monitoring --timeout=120s &
 wait
 
-log "Step 15: Deploying frontend"
+log "Step 16: Deploying frontend"
 cd web && npm run build
 FRONTEND_BUCKET=$(cd ../infra/terraform && terraform output -raw s3_frontend_bucket)
 CF_ID=$(cd ../infra/terraform && terraform output -raw cloudfront_distribution_id)
