@@ -4,17 +4,17 @@ set -euo pipefail
 REGION="us-east-1"
 CLUSTER="chirp-prod"
 NAMESPACE="chirp-prod"
+FORCE=false
+
+for arg in "$@"; do
+  case $arg in
+    --destroy) exec bash -c 'cd infra/terraform && terraform destroy -auto-approve && cd ../..' ;;
+    --force) FORCE=true ;;
+  esac
+done
 
 log() { echo -e "\033[1;36m==> $1\033[0m"; }
-
-if [ "${1:-}" = "--destroy" ]; then
-  log "DESTROYING ALL INFRASTRUCTURE"
-  cd infra/terraform
-  terraform destroy -auto-approve
-  cd ../..
-  log "Infrastructure destroyed. Run ./deploy.sh to redeploy."
-  exit 0
-fi
+skip() { echo -e "\033[1;33m  -- skipped (already done, use --force to re-run)\033[0m"; }
 
 if ! command -v aws &>/dev/null; then
   log "Installing AWS CLI"
@@ -125,10 +125,13 @@ REDIS_EP=$(cd infra/terraform && terraform output -raw redis_endpoint)
 REDIS_PORT=$(cd infra/terraform && terraform output -raw redis_port)
 S3_BUCKET=$(cd infra/terraform && terraform output -raw s3_media_bucket)
 
-if kubectl get secret chirp-secrets -n "$NAMESPACE" &>/dev/null; then
-  log "Secrets already exist, skipping creation"
-else
-  log "Creating secrets..."
+if [ "$FORCE" = true ] || ! kubectl get secret chirp-secrets -n "$NAMESPACE" &>/dev/null; then
+  if [ "$FORCE" = true ]; then
+    log "Recreating secrets (--force)..."
+    kubectl delete secret chirp-secrets -n "$NAMESPACE" 2>/dev/null || true
+  else
+    log "Creating secrets..."
+  fi
   kubectl create secret generic chirp-secrets \
     --from-literal=JWT_SECRET="$TF_VAR_jwt_secret" \
     --from-literal=POSTGRES_PASSWORD="$TF_VAR_db_password" \
@@ -148,18 +151,25 @@ else
     --from-literal=EVENT_BUS_URL="redis://${REDIS_EP}:${REDIS_PORT}/1" \
     --from-literal=S3_BUCKET="$S3_BUCKET" \
     -n "$NAMESPACE"
+else
+  log "Secrets already exist"
+  skip
 fi
 
 log "Step 8: Creating service databases"
 JOB_STATUS=$(kubectl get job init-db -n "$NAMESPACE" -o jsonpath='{.status.succeeded}' 2>/dev/null || echo "")
-if [ "$JOB_STATUS" = "1" ]; then
-  log "Databases already exist, skipping"
-else
-  kubectl delete job init-db -n "$NAMESPACE" 2>/dev/null || true
-  kubectl wait --for=delete pod -l app=init-db -n "$NAMESPACE" --timeout=30s 2>/dev/null || true
+if [ "$FORCE" = true ] || [ "$JOB_STATUS" != "1" ]; then
+  if [ "$FORCE" = true ]; then
+    log "Recreating databases (--force)..."
+    kubectl delete job init-db -n "$NAMESPACE" 2>/dev/null || true
+    kubectl wait --for=delete pod -l app=init-db -n "$NAMESPACE" --timeout=30s 2>/dev/null || true
+  fi
   kubectl apply -f k8s/base/init-db-job.yaml
   kubectl wait --for=condition=complete job/init-db -n "$NAMESPACE" --timeout=180s
   log "Databases created"
+else
+  log "Databases already exist"
+  skip
 fi
 
 log "Step 9: Installing AWS Load Balancer Controller"
@@ -198,14 +208,18 @@ done
 log "Step 13: Running migrations"
 for svc in auth user post graph timeline search notification messaging media moderation; do
   JOB_STATUS=$(kubectl get job "$svc-migrate" -n "$NAMESPACE" -o jsonpath='{.status.succeeded}' 2>/dev/null || echo "")
-  if [ "$JOB_STATUS" = "1" ]; then
-    log "  $svc: already migrated, skipping"
-    continue
+  if [ "$FORCE" = true ] || [ "$JOB_STATUS" != "1" ]; then
+    if [ "$FORCE" = true ]; then
+      kubectl delete job "$svc-migrate" -n "$NAMESPACE" --ignore-not-found
+    fi
+    log "  Migrating $svc..."
+    kubectl delete job "$svc-migrate" -n "$NAMESPACE" --ignore-not-found 2>/dev/null || true
+    kubectl apply -f k8s/services/$svc/job-migrate.yaml
+    kubectl wait --for=condition=complete "job/$svc-migrate" -n "$NAMESPACE" --timeout=120s
+  else
+    log "  $svc: already migrated"
+    skip
   fi
-  log "  Migrating $svc..."
-  kubectl delete job "$svc-migrate" -n "$NAMESPACE" --ignore-not-found
-  kubectl apply -f k8s/services/$svc/job-migrate.yaml
-  kubectl wait --for=condition=complete "job/$svc-migrate" -n "$NAMESPACE" --timeout=120s
 done
 
 log "Step 14: Deploying services"
