@@ -102,40 +102,67 @@ log "Step 5: Granting EKS access"
 aws eks create-access-entry --cluster-name "$CLUSTER" --principal-arn "arn:aws:iam::${ACCOUNT_ID}:user/abdo-admin" --type STANDARD --region "$REGION" 2>/dev/null || true
 aws eks associate-access-policy --cluster-name "$CLUSTER" --principal-arn "arn:aws:iam::${ACCOUNT_ID}:user/abdo-admin" --policy-arn "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy" --access-scope type=cluster --region "$REGION" 2>/dev/null || true
 
-log "Step 6: Creating K8s namespace and secrets"
+log "Step 6: Enabling prefix delegation for more pods per node"
+CURRENT_PD=$(kubectl get daemonset aws-node -n kube-system -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="ENABLE_PREFIX_DELEGATION")].value}' 2>/dev/null || echo "")
+if [ "$CURRENT_PD" != "true" ]; then
+  kubectl set env daemonset aws-node -n kube-system ENABLE_PREFIX_DELEGATION=true
+  kubectl rollout restart daemonset aws-node -n kube-system
+  log "Waiting for nodes to be ready..."
+  sleep 30
+  kubectl wait --for=condition=Ready node --all --timeout=120s 2>/dev/null || true
+  log "Prefix delegation enabled"
+else
+  log "Prefix delegation already enabled"
+fi
+
+log "Step 7: Creating K8s namespace and secrets"
 kubectl create namespace "$NAMESPACE" 2>/dev/null || true
-kubectl delete secret chirp-secrets -n "$NAMESPACE" 2>/dev/null || true
 
 ECR_URL=$(cd infra/terraform && terraform output -raw ecr_repository_url)
+RDS_HOST=$(cd infra/terraform && terraform output -raw rds_host)
+RDS_PORT=$(cd infra/terraform && terraform output -raw rds_port)
+REDIS_EP=$(cd infra/terraform && terraform output -raw redis_endpoint)
+REDIS_PORT=$(cd infra/terraform && terraform output -raw redis_port)
+S3_BUCKET=$(cd infra/terraform && terraform output -raw s3_media_bucket)
 
-kubectl create secret generic chirp-secrets \
-  --from-literal=JWT_SECRET="$TF_VAR_jwt_secret" \
-  --from-literal=POSTGRES_PASSWORD="$TF_VAR_db_password" \
-  --from-literal=RDS_HOST="$(cd infra/terraform && terraform output -raw rds_host)" \
-  --from-literal=RDS_PORT="$(cd infra/terraform && terraform output -raw rds_port)" \
-  --from-literal=DATABASE_URL_AUTH="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@$(cd infra/terraform && terraform output -raw rds_host):$(cd infra/terraform && terraform output -raw rds_port)/chirp_auth" \
-  --from-literal=DATABASE_URL_USER="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@$(cd infra/terraform && terraform output -raw rds_host):$(cd infra/terraform && terraform output -raw rds_port)/chirp_user" \
-  --from-literal=DATABASE_URL_POST="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@$(cd infra/terraform && terraform output -raw rds_host):$(cd infra/terraform && terraform output -raw rds_port)/chirp_post" \
-  --from-literal=DATABASE_URL_GRAPH="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@$(cd infra/terraform && terraform output -raw rds_host):$(cd infra/terraform && terraform output -raw rds_port)/chirp_graph" \
-  --from-literal=DATABASE_URL_TIMELINE="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@$(cd infra/terraform && terraform output -raw rds_host):$(cd infra/terraform && terraform output -raw rds_port)/chirp_timeline" \
-  --from-literal=DATABASE_URL_SEARCH="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@$(cd infra/terraform && terraform output -raw rds_host):$(cd infra/terraform && terraform output -raw rds_port)/chirp_search" \
-  --from-literal=DATABASE_URL_NOTIFICATION="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@$(cd infra/terraform && terraform output -raw rds_host):$(cd infra/terraform && terraform output -raw rds_port)/chirp_notification" \
-  --from-literal=DATABASE_URL_MESSAGING="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@$(cd infra/terraform && terraform output -raw rds_host):$(cd infra/terraform && terraform output -raw rds_port)/chirp_messaging" \
-  --from-literal=DATABASE_URL_MEDIA="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@$(cd infra/terraform && terraform output -raw rds_host):$(cd infra/terraform && terraform output -raw rds_port)/chirp_media" \
-  --from-literal=DATABASE_URL_MODERATION="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@$(cd infra/terraform && terraform output -raw rds_host):$(cd infra/terraform && terraform output -raw rds_port)/chirp_moderation" \
-  --from-literal=REDIS_URL="redis://$(cd infra/terraform && terraform output -raw redis_endpoint):$(cd infra/terraform && terraform output -raw redis_port)/0" \
-  --from-literal=EVENT_BUS_URL="redis://$(cd infra/terraform && terraform output -raw redis_endpoint):$(cd infra/terraform && terraform output -raw redis_port)/1" \
-  --from-literal=S3_BUCKET="$(cd infra/terraform && terraform output -raw s3_media_bucket)" \
-  -n "$NAMESPACE"
+if kubectl get secret chirp-secrets -n "$NAMESPACE" &>/dev/null; then
+  log "Secrets already exist, skipping creation"
+else
+  log "Creating secrets..."
+  kubectl create secret generic chirp-secrets \
+    --from-literal=JWT_SECRET="$TF_VAR_jwt_secret" \
+    --from-literal=POSTGRES_PASSWORD="$TF_VAR_db_password" \
+    --from-literal=RDS_HOST="$RDS_HOST" \
+    --from-literal=RDS_PORT="$RDS_PORT" \
+    --from-literal=DATABASE_URL_AUTH="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@${RDS_HOST}:${RDS_PORT}/chirp_auth" \
+    --from-literal=DATABASE_URL_USER="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@${RDS_HOST}:${RDS_PORT}/chirp_user" \
+    --from-literal=DATABASE_URL_POST="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@${RDS_HOST}:${RDS_PORT}/chirp_post" \
+    --from-literal=DATABASE_URL_GRAPH="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@${RDS_HOST}:${RDS_PORT}/chirp_graph" \
+    --from-literal=DATABASE_URL_TIMELINE="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@${RDS_HOST}:${RDS_PORT}/chirp_timeline" \
+    --from-literal=DATABASE_URL_SEARCH="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@${RDS_HOST}:${RDS_PORT}/chirp_search" \
+    --from-literal=DATABASE_URL_NOTIFICATION="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@${RDS_HOST}:${RDS_PORT}/chirp_notification" \
+    --from-literal=DATABASE_URL_MESSAGING="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@${RDS_HOST}:${RDS_PORT}/chirp_messaging" \
+    --from-literal=DATABASE_URL_MEDIA="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@${RDS_HOST}:${RDS_PORT}/chirp_media" \
+    --from-literal=DATABASE_URL_MODERATION="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@${RDS_HOST}:${RDS_PORT}/chirp_moderation" \
+    --from-literal=REDIS_URL="redis://${REDIS_EP}:${REDIS_PORT}/0" \
+    --from-literal=EVENT_BUS_URL="redis://${REDIS_EP}:${REDIS_PORT}/1" \
+    --from-literal=S3_BUCKET="$S3_BUCKET" \
+    -n "$NAMESPACE"
+fi
 
-log "Step 7: Creating service databases"
-kubectl delete job init-db -n "$NAMESPACE" 2>/dev/null || true
-kubectl wait --for=delete pod -l app=init-db -n "$NAMESPACE" --timeout=30s 2>/dev/null || true
-kubectl apply -f k8s/base/init-db-job.yaml
-kubectl wait --for=condition=complete job/init-db -n "$NAMESPACE" --timeout=180s
-log "Databases created"
+log "Step 8: Creating service databases"
+JOB_STATUS=$(kubectl get job init-db -n "$NAMESPACE" -o jsonpath='{.status.succeeded}' 2>/dev/null || echo "")
+if [ "$JOB_STATUS" = "1" ]; then
+  log "Databases already exist, skipping"
+else
+  kubectl delete job init-db -n "$NAMESPACE" 2>/dev/null || true
+  kubectl wait --for=delete pod -l app=init-db -n "$NAMESPACE" --timeout=30s 2>/dev/null || true
+  kubectl apply -f k8s/base/init-db-job.yaml
+  kubectl wait --for=condition=complete job/init-db -n "$NAMESPACE" --timeout=180s
+  log "Databases created"
+fi
 
-log "Step 8: Installing AWS Load Balancer Controller"
+log "Step 9: Installing AWS Load Balancer Controller"
 helm repo add eks https://aws.github.io/eks-charts 2>/dev/null || true
 helm repo update
 helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller \
@@ -146,7 +173,7 @@ helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-contro
   --force \
   --wait
 
-log "Step 9: Building and pushing Docker images"
+log "Step 10: Building and pushing Docker images"
 aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com"
 
 log "  Building base image..."
@@ -160,33 +187,38 @@ for svc in gateway auth user post graph timeline search notification messaging m
   docker push "$ECR_URL:${svc}-latest"
 done
 
-log "Step 10: Applying K8s base resources"
+log "Step 11: Applying K8s base resources"
 kubectl apply -f k8s/base/
 
-log "Step 11: Fixing image references"
+log "Step 12: Fixing image references"
 for svc in gateway auth user post graph timeline search notification messaging media moderation; do
   sed -i "s|image: chirp/${svc}:latest|image: ${ECR_URL}:${svc}-latest|g" k8s/services/$svc/deployment.yaml k8s/services/$svc/job-migrate.yaml 2>/dev/null || true
 done
 
-log "Step 12: Running migrations"
+log "Step 13: Running migrations"
 for svc in auth user post graph timeline search notification messaging media moderation; do
+  JOB_STATUS=$(kubectl get job "$svc-migrate" -n "$NAMESPACE" -o jsonpath='{.status.succeeded}' 2>/dev/null || echo "")
+  if [ "$JOB_STATUS" = "1" ]; then
+    log "  $svc: already migrated, skipping"
+    continue
+  fi
   log "  Migrating $svc..."
   kubectl delete job "$svc-migrate" -n "$NAMESPACE" --ignore-not-found
   kubectl apply -f k8s/services/$svc/job-migrate.yaml
   kubectl wait --for=condition=complete "job/$svc-migrate" -n "$NAMESPACE" --timeout=120s
 done
 
-log "Step 13: Deploying services"
+log "Step 14: Deploying services"
 kubectl apply -f k8s/services/
 kubectl apply -f k8s/ingress/
 
-log "Step 14: Waiting for rollout"
+log "Step 15: Waiting for rollout"
 for svc in gateway auth user post graph timeline search notification messaging media moderation; do
   kubectl rollout status "deployment/$svc" -n "$NAMESPACE" --timeout=300s &
 done
 wait
 
-log "Step 15: Deploying monitoring (Prometheus + Grafana)"
+log "Step 16: Deploying monitoring (Prometheus + Grafana)"
 kubectl apply -f k8s/monitoring/prometheus.yaml
 kubectl apply -f k8s/monitoring/grafana.yaml
 kubectl apply -f k8s/monitoring/ingress.yaml
@@ -194,7 +226,7 @@ kubectl rollout status deployment/prometheus -n monitoring --timeout=120s &
 kubectl rollout status deployment/grafana -n monitoring --timeout=120s &
 wait
 
-log "Step 16: Deploying frontend"
+log "Step 17: Deploying frontend"
 cd web && npm run build
 FRONTEND_BUCKET=$(cd ../infra/terraform && terraform output -raw s3_frontend_bucket)
 CF_ID=$(cd ../infra/terraform && terraform output -raw cloudfront_distribution_id)
