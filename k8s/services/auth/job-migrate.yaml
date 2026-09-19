@@ -30,5 +30,6 @@ spec:
                 secretKeyRef:
                   name: chirp-secrets
                   key: DATABASE_URL_AUTH
+      workingDir: /srv/service
       restartPolicy: Never
   backoffLimit: 3
