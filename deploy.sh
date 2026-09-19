@@ -137,16 +137,16 @@ if [ "$FORCE" = true ] || ! kubectl get secret chirp-secrets -n "$NAMESPACE" &>/
     --from-literal=POSTGRES_PASSWORD="$TF_VAR_db_password" \
     --from-literal=RDS_HOST="$RDS_HOST" \
     --from-literal=RDS_PORT="$RDS_PORT" \
-    --from-literal=DATABASE_URL_AUTH="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@${RDS_HOST}:${RDS_PORT}/chirp_auth" \
-    --from-literal=DATABASE_URL_USER="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@${RDS_HOST}:${RDS_PORT}/chirp_user" \
-    --from-literal=DATABASE_URL_POST="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@${RDS_HOST}:${RDS_PORT}/chirp_post" \
-    --from-literal=DATABASE_URL_GRAPH="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@${RDS_HOST}:${RDS_PORT}/chirp_graph" \
-    --from-literal=DATABASE_URL_TIMELINE="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@${RDS_HOST}:${RDS_PORT}/chirp_timeline" \
-    --from-literal=DATABASE_URL_SEARCH="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@${RDS_HOST}:${RDS_PORT}/chirp_search" \
-    --from-literal=DATABASE_URL_NOTIFICATION="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@${RDS_HOST}:${RDS_PORT}/chirp_notification" \
-    --from-literal=DATABASE_URL_MESSAGING="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@${RDS_HOST}:${RDS_PORT}/chirp_messaging" \
-    --from-literal=DATABASE_URL_MEDIA="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@${RDS_HOST}:${RDS_PORT}/chirp_media" \
-    --from-literal=DATABASE_URL_MODERATION="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@${RDS_HOST}:${RDS_PORT}/chirp_moderation" \
+    --from-literal=DATABASE_URL_AUTH="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@${RDS_HOST}:${RDS_PORT}/chirp_auth?ssl=require" \
+    --from-literal=DATABASE_URL_USER="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@${RDS_HOST}:${RDS_PORT}/chirp_user?ssl=require" \
+    --from-literal=DATABASE_URL_POST="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@${RDS_HOST}:${RDS_PORT}/chirp_post?ssl=require" \
+    --from-literal=DATABASE_URL_GRAPH="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@${RDS_HOST}:${RDS_PORT}/chirp_graph?ssl=require" \
+    --from-literal=DATABASE_URL_TIMELINE="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@${RDS_HOST}:${RDS_PORT}/chirp_timeline?ssl=require" \
+    --from-literal=DATABASE_URL_SEARCH="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@${RDS_HOST}:${RDS_PORT}/chirp_search?ssl=require" \
+    --from-literal=DATABASE_URL_NOTIFICATION="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@${RDS_HOST}:${RDS_PORT}/chirp_notification?ssl=require" \
+    --from-literal=DATABASE_URL_MESSAGING="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@${RDS_HOST}:${RDS_PORT}/chirp_messaging?ssl=require" \
+    --from-literal=DATABASE_URL_MEDIA="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@${RDS_HOST}:${RDS_PORT}/chirp_media?ssl=require" \
+    --from-literal=DATABASE_URL_MODERATION="postgresql+asyncpg://chirp_admin:${TF_VAR_db_password}@${RDS_HOST}:${RDS_PORT}/chirp_moderation?ssl=require" \
     --from-literal=REDIS_URL="redis://${REDIS_EP}:${REDIS_PORT}/0" \
     --from-literal=EVENT_BUS_URL="redis://${REDIS_EP}:${REDIS_PORT}/1" \
     --from-literal=S3_BUCKET="$S3_BUCKET" \
