@@ -143,6 +143,7 @@ helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-contro
   --set clusterName="$CLUSTER" \
   --set serviceAccount.create=true \
   --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="" \
+  --force \
   --wait
 
 log "Step 9: Building and pushing Docker images"
